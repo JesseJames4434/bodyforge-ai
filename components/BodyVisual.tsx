@@ -1,155 +1,250 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-
-export type BodyViewMode = 'front' | 'back';
-export type MuscleType = 'chest' | 'shoulder' | 'triceps' | 'back' | 'other';
+import { StyleSheet, Text, View } from 'react-native';
+import type {
+  BodySide,
+  MuscleGroup,
+  PosePreset,
+  PostureStateDefinition,
+} from '../constants/trainingData';
 
 type BodyVisualProps = {
-  bodyView: BodyViewMode;
-  muscleType: MuscleType;
-  title?: string;
-  subtitle?: string;
-  showToggle?: boolean;
-  onChangeView?: (view: BodyViewMode) => void;
+  side?: BodySide;
+  highlightedMuscles?: MuscleGroup[];
+  postureState?: PostureStateDefinition;
+};
+
+type FigurePose = {
+  torsoRotate: string;
+  leftUpperArmRotate: string;
+  rightUpperArmRotate: string;
+  leftForearmRotate: string;
+  rightForearmRotate: string;
+  leftThighRotate: string;
+  rightThighRotate: string;
+  leftCalfRotate: string;
+  rightCalfRotate: string;
+};
+
+const POSES: Record<PosePreset, FigurePose> = {
+  'standing-neutral': {
+    torsoRotate: '0deg',
+    leftUpperArmRotate: '-12deg',
+    rightUpperArmRotate: '12deg',
+    leftForearmRotate: '-4deg',
+    rightForearmRotate: '4deg',
+    leftThighRotate: '2deg',
+    rightThighRotate: '-2deg',
+    leftCalfRotate: '0deg',
+    rightCalfRotate: '0deg',
+  },
+  'press-stretch': {
+    torsoRotate: '0deg',
+    leftUpperArmRotate: '-55deg',
+    rightUpperArmRotate: '55deg',
+    leftForearmRotate: '-78deg',
+    rightForearmRotate: '78deg',
+    leftThighRotate: '2deg',
+    rightThighRotate: '-2deg',
+    leftCalfRotate: '0deg',
+    rightCalfRotate: '0deg',
+  },
+  'press-contraction': {
+    torsoRotate: '0deg',
+    leftUpperArmRotate: '-20deg',
+    rightUpperArmRotate: '20deg',
+    leftForearmRotate: '-12deg',
+    rightForearmRotate: '12deg',
+    leftThighRotate: '2deg',
+    rightThighRotate: '-2deg',
+    leftCalfRotate: '0deg',
+    rightCalfRotate: '0deg',
+  },
+  'hinge-setup': {
+    torsoRotate: '0deg',
+    leftUpperArmRotate: '-10deg',
+    rightUpperArmRotate: '10deg',
+    leftForearmRotate: '-6deg',
+    rightForearmRotate: '6deg',
+    leftThighRotate: '4deg',
+    rightThighRotate: '-4deg',
+    leftCalfRotate: '0deg',
+    rightCalfRotate: '0deg',
+  },
+  'hinge-stretch': {
+    torsoRotate: '28deg',
+    leftUpperArmRotate: '4deg',
+    rightUpperArmRotate: '-4deg',
+    leftForearmRotate: '10deg',
+    rightForearmRotate: '-10deg',
+    leftThighRotate: '18deg',
+    rightThighRotate: '-18deg',
+    leftCalfRotate: '-8deg',
+    rightCalfRotate: '8deg',
+  },
+  'hinge-contraction': {
+    torsoRotate: '0deg',
+    leftUpperArmRotate: '-6deg',
+    rightUpperArmRotate: '6deg',
+    leftForearmRotate: '0deg',
+    rightForearmRotate: '0deg',
+    leftThighRotate: '4deg',
+    rightThighRotate: '-4deg',
+    leftCalfRotate: '0deg',
+    rightCalfRotate: '0deg',
+  },
+  'curl-setup': {
+    torsoRotate: '0deg',
+    leftUpperArmRotate: '-8deg',
+    rightUpperArmRotate: '8deg',
+    leftForearmRotate: '-6deg',
+    rightForearmRotate: '6deg',
+    leftThighRotate: '2deg',
+    rightThighRotate: '-2deg',
+    leftCalfRotate: '0deg',
+    rightCalfRotate: '0deg',
+  },
+  'curl-stretch': {
+    torsoRotate: '0deg',
+    leftUpperArmRotate: '-6deg',
+    rightUpperArmRotate: '6deg',
+    leftForearmRotate: '6deg',
+    rightForearmRotate: '-6deg',
+    leftThighRotate: '2deg',
+    rightThighRotate: '-2deg',
+    leftCalfRotate: '0deg',
+    rightCalfRotate: '0deg',
+  },
+  'curl-contraction': {
+    torsoRotate: '0deg',
+    leftUpperArmRotate: '-4deg',
+    rightUpperArmRotate: '4deg',
+    leftForearmRotate: '-95deg',
+    rightForearmRotate: '95deg',
+    leftThighRotate: '2deg',
+    rightThighRotate: '-2deg',
+    leftCalfRotate: '0deg',
+    rightCalfRotate: '0deg',
+  },
 };
 
 export default function BodyVisual({
-  bodyView,
-  muscleType,
-  title = 'Body Visual Active',
-  subtitle = 'Primary target emphasis',
-  showToggle = false,
-  onChangeView,
+  side = 'front',
+  highlightedMuscles = [],
+  postureState,
 }: BodyVisualProps) {
-  function renderFrontBody() {
-    return (
-      <View style={styles.avatarFrame}>
-        <View style={styles.avatarHead} />
-        <View style={styles.avatarTorsoFront}>
-          <View
-            style={[
-              styles.frontShoulderLeft,
-              muscleType === 'shoulder' && styles.activeHighlight,
-            ]}
-          />
-          <View
-            style={[
-              styles.frontShoulderRight,
-              muscleType === 'shoulder' && styles.activeHighlight,
-            ]}
-          />
-          <View
-            style={[
-              styles.frontChest,
-              muscleType === 'chest' && styles.activeHighlight,
-            ]}
-          />
-          <View
-            style={[
-              styles.frontArmLeft,
-              muscleType === 'triceps' && styles.activeHighlight,
-            ]}
-          />
-          <View
-            style={[
-              styles.frontArmRight,
-              muscleType === 'triceps' && styles.activeHighlight,
-            ]}
-          />
-        </View>
-      </View>
-    );
-  }
-
-  function renderBackBody() {
-    return (
-      <View style={styles.avatarFrame}>
-        <View style={styles.avatarHead} />
-        <View style={styles.avatarTorsoBack}>
-          <View
-            style={[
-              styles.backShoulderLeft,
-              muscleType === 'shoulder' && styles.activeHighlight,
-            ]}
-          />
-          <View
-            style={[
-              styles.backShoulderRight,
-              muscleType === 'shoulder' && styles.activeHighlight,
-            ]}
-          />
-          <View
-            style={[
-              styles.backUpperBody,
-              muscleType === 'back' && styles.activeHighlight,
-            ]}
-          />
-          <View
-            style={[
-              styles.backArmLeft,
-              muscleType === 'triceps' && styles.activeHighlight,
-            ]}
-          />
-          <View
-            style={[
-              styles.backArmRight,
-              muscleType === 'triceps' && styles.activeHighlight,
-            ]}
-          />
-        </View>
-      </View>
-    );
-  }
+  const pose = POSES[postureState?.posePreset ?? 'standing-neutral'];
 
   return (
-    <View style={styles.wrapper}>
-      {showToggle && onChangeView ? (
-        <View style={styles.toggleRow}>
-          <Pressable
-            style={[
-              styles.toggleButton,
-              bodyView === 'front' && styles.toggleButtonActive,
-            ]}
-            onPress={() => onChangeView('front')}
-          >
-            <Text
-              style={[
-                styles.toggleButtonText,
-                bodyView === 'front' && styles.toggleButtonTextActive,
-              ]}
-            >
-              Front
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[
-              styles.toggleButton,
-              bodyView === 'back' && styles.toggleButtonActive,
-            ]}
-            onPress={() => onChangeView('back')}
-          >
-            <Text
-              style={[
-                styles.toggleButtonText,
-                bodyView === 'back' && styles.toggleButtonTextActive,
-              ]}
-            >
-              Back
-            </Text>
-          </Pressable>
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.eyebrow}>Body Visual</Text>
+          <Text style={styles.title}>
+            {postureState?.label ?? 'Setup'} Position
+          </Text>
         </View>
-      ) : null}
 
-      <View style={styles.visualCard}>
-        {bodyView === 'front' ? renderFrontBody() : renderBackBody()}
+        <View style={styles.sideBadge}>
+          <Text style={styles.sideBadgeText}>
+            {side === 'front' ? 'Front View' : 'Back View'}
+          </Text>
+        </View>
+      </View>
 
-        <View style={styles.visualInfo}>
-          <Text style={styles.visualTitle}>{title}</Text>
-          <Text style={styles.visualText}>{subtitle}</Text>
-          <Text style={styles.visualTextSecondary}>
-            This visual engine will later evolve into a more anatomical and realistic
-            Bodyforge avatar.
+      <View style={styles.figureStage}>
+        <View style={[styles.figure, side === 'back' && styles.figureBack]}>
+          <View style={styles.head} />
+
+          <View
+            style={[
+              styles.torso,
+              getMuscleStyle(highlightedMuscles, side, 'torso'),
+              { transform: [{ rotate: pose.torsoRotate }] },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.upperArm,
+              styles.leftUpperArm,
+              getMuscleStyle(highlightedMuscles, side, 'upperArms'),
+              { transform: [{ rotate: pose.leftUpperArmRotate }] },
+            ]}
+          />
+          <View
+            style={[
+              styles.upperArm,
+              styles.rightUpperArm,
+              getMuscleStyle(highlightedMuscles, side, 'upperArms'),
+              { transform: [{ rotate: pose.rightUpperArmRotate }] },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.forearm,
+              styles.leftForearm,
+              getMuscleStyle(highlightedMuscles, side, 'forearms'),
+              { transform: [{ rotate: pose.leftForearmRotate }] },
+            ]}
+          />
+          <View
+            style={[
+              styles.forearm,
+              styles.rightForearm,
+              getMuscleStyle(highlightedMuscles, side, 'forearms'),
+              { transform: [{ rotate: pose.rightForearmRotate }] },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.thigh,
+              styles.leftThigh,
+              getMuscleStyle(highlightedMuscles, side, 'upperLegs'),
+              { transform: [{ rotate: pose.leftThighRotate }] },
+            ]}
+          />
+          <View
+            style={[
+              styles.thigh,
+              styles.rightThigh,
+              getMuscleStyle(highlightedMuscles, side, 'upperLegs'),
+              { transform: [{ rotate: pose.rightThighRotate }] },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.calf,
+              styles.leftCalf,
+              getMuscleStyle(highlightedMuscles, side, 'lowerLegs'),
+              { transform: [{ rotate: pose.leftCalfRotate }] },
+            ]}
+          />
+          <View
+            style={[
+              styles.calf,
+              styles.rightCalf,
+              getMuscleStyle(highlightedMuscles, side, 'lowerLegs'),
+              { transform: [{ rotate: pose.rightCalfRotate }] },
+            ]}
+          />
+        </View>
+      </View>
+
+      <View style={styles.infoRow}>
+        <View style={styles.infoPill}>
+          <Text style={styles.infoPillLabel}>State</Text>
+          <Text style={styles.infoPillValue}>
+            {postureState?.label ?? 'Setup'}
+          </Text>
+        </View>
+
+        <View style={styles.infoPill}>
+          <Text style={styles.infoPillLabel}>Cue</Text>
+          <Text style={styles.infoPillValue}>
+            {postureState?.shortCue ?? 'Get set and brace.'}
           </Text>
         </View>
       </View>
@@ -157,187 +252,182 @@ export default function BodyVisual({
   );
 }
 
+function getMuscleStyle(
+  highlightedMuscles: MuscleGroup[],
+  side: BodySide,
+  region: 'torso' | 'upperArms' | 'forearms' | 'upperLegs' | 'lowerLegs'
+) {
+  const active = new Set(highlightedMuscles);
+
+  const regionMap: Record<typeof region, MuscleGroup[]> = {
+    torso:
+      side === 'front'
+        ? ['chest', 'frontDelts', 'sideDelts', 'abs', 'obliques']
+        : ['lats', 'upperBack', 'lowerBack', 'rearDelts', 'glutes'],
+    upperArms:
+      side === 'front'
+        ? ['biceps', 'triceps', 'frontDelts', 'sideDelts']
+        : ['triceps', 'rearDelts'],
+    forearms: ['forearms'],
+    upperLegs:
+      side === 'front'
+        ? ['quads']
+        : ['hamstrings', 'glutes'],
+    lowerLegs: ['calves'],
+  };
+
+  const isActive = regionMap[region].some((muscle) => active.has(muscle));
+
+  return isActive ? styles.highlightedRegion : null;
+}
+
 const styles = StyleSheet.create({
-  wrapper: {
-    width: '100%',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'flex-end',
-    marginBottom: 12,
-  },
-  toggleButton: {
-    backgroundColor: '#151C27',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  card: {
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 18,
+    gap: 16,
     borderWidth: 1,
-    borderColor: '#263143',
+    borderColor: '#1f2937',
   },
-  toggleButtonActive: {
-    backgroundColor: '#F5F7FB',
-    borderColor: '#F5F7FB',
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  toggleButtonText: {
-    color: '#C6D0DF',
-    fontSize: 13,
+  eyebrow: {
+    color: '#9ca3af',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  title: {
+    color: '#f9fafb',
+    fontSize: 20,
     fontWeight: '700',
   },
-  toggleButtonTextActive: {
-    color: '#07090D',
+  sideBadge: {
+    backgroundColor: '#1f2937',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
   },
-  visualCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#1B2533',
-    backgroundColor: '#0A1220',
-    padding: 18,
-    minHeight: 320,
+  sideBadgeText: {
+    color: '#d1d5db',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  figureStage: {
+    height: 320,
+    backgroundColor: '#0b1220',
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarFrame: {
-    width: 160,
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  avatarHead: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#334155',
-    marginBottom: 10,
-  },
-  avatarTorsoFront: {
-    width: 82,
-    height: 132,
-    borderRadius: 28,
-    backgroundColor: '#243244',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+  figure: {
+    width: 180,
+    height: 260,
     position: 'relative',
-  },
-  avatarTorsoBack: {
-    width: 82,
-    height: 132,
-    borderRadius: 28,
-    backgroundColor: '#243244',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    position: 'relative',
   },
-  frontChest: {
-    marginTop: 20,
-    width: 48,
-    height: 30,
-    borderRadius: 14,
-    backgroundColor: '#3A475A',
-  },
-  frontShoulderLeft: {
+  figureBack: {},
+  head: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#374151',
     position: 'absolute',
-    top: 16,
-    left: -18,
-    width: 26,
-    height: 22,
+    top: 0,
+  },
+  torso: {
+    width: 64,
+    height: 96,
+    borderRadius: 28,
+    backgroundColor: '#374151',
+    position: 'absolute',
+    top: 42,
+  },
+  upperArm: {
+    width: 18,
+    height: 66,
+    borderRadius: 10,
+    backgroundColor: '#374151',
+    position: 'absolute',
+    top: 52,
+  },
+  leftUpperArm: {
+    left: 28,
+  },
+  rightUpperArm: {
+    right: 28,
+  },
+  forearm: {
+    width: 16,
+    height: 58,
+    borderRadius: 10,
+    backgroundColor: '#4b5563',
+    position: 'absolute',
+    top: 110,
+  },
+  leftForearm: {
+    left: 24,
+  },
+  rightForearm: {
+    right: 24,
+  },
+  thigh: {
+    width: 22,
+    height: 76,
     borderRadius: 12,
-    backgroundColor: '#3A475A',
-  },
-  frontShoulderRight: {
+    backgroundColor: '#374151',
     position: 'absolute',
-    top: 16,
-    right: -18,
-    width: 26,
-    height: 22,
-    borderRadius: 12,
-    backgroundColor: '#3A475A',
+    top: 136,
   },
-  frontArmLeft: {
+  leftThigh: {
+    left: 58,
+  },
+  rightThigh: {
+    right: 58,
+  },
+  calf: {
+    width: 18,
+    height: 70,
+    borderRadius: 10,
+    backgroundColor: '#4b5563',
     position: 'absolute',
-    top: 38,
-    left: -14,
-    width: 12,
-    height: 62,
-    borderRadius: 8,
-    backgroundColor: '#3A475A',
+    top: 194,
   },
-  frontArmRight: {
-    position: 'absolute',
-    top: 38,
-    right: -14,
-    width: 12,
-    height: 62,
-    borderRadius: 8,
-    backgroundColor: '#3A475A',
+  leftCalf: {
+    left: 60,
   },
-  backUpperBody: {
-    marginTop: 20,
-    width: 52,
-    height: 40,
+  rightCalf: {
+    right: 60,
+  },
+  highlightedRegion: {
+    backgroundColor: '#f97316',
+  },
+  infoRow: {
+    gap: 10,
+  },
+  infoPill: {
+    backgroundColor: '#0b1220',
     borderRadius: 16,
-    backgroundColor: '#3A475A',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1f2937',
   },
-  backShoulderLeft: {
-    position: 'absolute',
-    top: 16,
-    left: -18,
-    width: 26,
-    height: 22,
-    borderRadius: 12,
-    backgroundColor: '#3A475A',
+  infoPillLabel: {
+    color: '#9ca3af',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
-  backShoulderRight: {
-    position: 'absolute',
-    top: 16,
-    right: -18,
-    width: 26,
-    height: 22,
-    borderRadius: 12,
-    backgroundColor: '#3A475A',
-  },
-  backArmLeft: {
-    position: 'absolute',
-    top: 38,
-    left: -14,
-    width: 12,
-    height: 62,
-    borderRadius: 8,
-    backgroundColor: '#3A475A',
-  },
-  backArmRight: {
-    position: 'absolute',
-    top: 38,
-    right: -14,
-    width: 12,
-    height: 62,
-    borderRadius: 8,
-    backgroundColor: '#3A475A',
-  },
-  activeHighlight: {
-    backgroundColor: '#B18C5A',
-  },
-  visualInfo: {
-    alignItems: 'center',
-  },
-  visualTitle: {
-    color: '#F5F7FB',
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  visualText: {
-    color: '#C8D2E2',
+  infoPillValue: {
+    color: '#f3f4f6',
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  visualTextSecondary: {
-    color: '#93A1B5',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 21,
-    maxWidth: 320,
   },
 });
