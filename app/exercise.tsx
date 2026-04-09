@@ -50,7 +50,7 @@ export default function ExerciseScreen() {
       />
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Posture States</Text>
+        <Text style={styles.cardTitle}>Posture State</Text>
 
         <View style={styles.segmentRow}>
           {(['setup', 'stretch', 'contraction'] as PostureStateKey[]).map(
@@ -81,7 +81,7 @@ export default function ExerciseScreen() {
           )}
         </View>
 
-        <View style={styles.stateDetail}>
+        <View style={styles.stateBox}>
           <Text style={styles.stateTitle}>{postureState.shortCue}</Text>
           <Text style={styles.stateBody}>{postureState.detailCue}</Text>
         </View>
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   segmentButtonTextActive: {
     color: '#ffffff',
   },
-  stateDetail: {
+  stateBox: {
     backgroundColor: '#0b1220',
     borderRadius: 18,
     padding: 14,
