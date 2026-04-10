@@ -58,6 +58,21 @@ function getFigureStyles(postureState?: PostureState) {
   };
 }
 
+function getMuscleHighlightTone(postureState?: PostureState) {
+  const label = postureState?.label?.toLowerCase();
+
+  if (label === 'stretch') return styles.highlightStretch;
+  if (label === 'contraction') return styles.highlightContraction;
+
+  return styles.highlightSetup;
+}
+
+function formatMuscleList(highlightedMuscles: string[]) {
+  if (highlightedMuscles.length === 0) return 'None selected';
+
+  return highlightedMuscles.join(' • ');
+}
+
 export default function BodyVisual({
   side,
   highlightedMuscles,
@@ -65,6 +80,7 @@ export default function BodyVisual({
 }: Props) {
   const poseLabel = getPoseLabel(postureState);
   const figureStyles = getFigureStyles(postureState);
+  const highlightTone = getMuscleHighlightTone(postureState);
 
   return (
     <View style={styles.container}>
@@ -91,25 +107,52 @@ export default function BodyVisual({
             <View style={styles.head} />
 
             <View style={[styles.torsoBase, figureStyles.torso]}>
+              <View style={[styles.torsoHighlight, highlightTone]} />
               <Text style={styles.sideText}>
                 {side === 'front' ? 'FRONT' : 'BACK'}
               </Text>
             </View>
 
-            <View style={[styles.armBase, styles.leftArmBase, figureStyles.leftArm]} />
-            <View style={[styles.armBase, styles.rightArmBase, figureStyles.rightArm]} />
+            <View
+              style={[
+                styles.armBase,
+                styles.leftArmBase,
+                figureStyles.leftArm,
+                highlightTone,
+              ]}
+            />
+            <View
+              style={[
+                styles.armBase,
+                styles.rightArmBase,
+                figureStyles.rightArm,
+                highlightTone,
+              ]}
+            />
 
-            <View style={[styles.legBase, styles.leftLegBase, figureStyles.leftLeg]} />
-            <View style={[styles.legBase, styles.rightLegBase, figureStyles.rightLeg]} />
+            <View
+              style={[
+                styles.legBase,
+                styles.leftLegBase,
+                figureStyles.leftLeg,
+                highlightTone,
+              ]}
+            />
+            <View
+              style={[
+                styles.legBase,
+                styles.rightLegBase,
+                figureStyles.rightLeg,
+                highlightTone,
+              ]}
+            />
           </View>
         </View>
 
         <View style={styles.muscleBox}>
           <Text style={styles.muscleLabel}>Active Muscles</Text>
           <Text style={styles.muscleValue}>
-            {highlightedMuscles.length > 0
-              ? highlightedMuscles.join(', ')
-              : 'None selected'}
+            {formatMuscleList(highlightedMuscles)}
           </Text>
         </View>
 
@@ -203,6 +246,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#374151',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  torsoHighlight: {
+    position: 'absolute',
+    width: 42,
+    height: 58,
+    borderRadius: 14,
+    opacity: 0.95,
   },
   torsoSetup: {
     marginTop: 0,
@@ -219,6 +270,7 @@ const styles = StyleSheet.create({
     color: '#f9fafb',
     fontSize: 11,
     fontWeight: '700',
+    zIndex: 1,
   },
   armBase: {
     position: 'absolute',
@@ -290,6 +342,15 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-2deg' }],
     top: 116,
   },
+  highlightSetup: {
+    backgroundColor: '#fb923c',
+  },
+  highlightStretch: {
+    backgroundColor: '#f59e0b',
+  },
+  highlightContraction: {
+    backgroundColor: '#f97316',
+  },
   muscleBox: {
     backgroundColor: '#0b1220',
     borderRadius: 12,
@@ -307,6 +368,7 @@ const styles = StyleSheet.create({
     color: '#f9fafb',
     fontSize: 13,
     fontWeight: '600',
+    lineHeight: 18,
   },
   statePill: {
     alignSelf: 'center',

@@ -6,6 +6,7 @@ import BodyVisual from '../components/BodyVisual';
 import {
   getCoachingCueForSet,
   getExerciseById,
+  getNextExerciseId,
   type PostureStateKey,
 } from '../constants/trainingData';
 
@@ -32,6 +33,38 @@ export default function ExerciseScreen() {
 
   const postureState = exercise.postureStates[selectedState];
   const coachingCue = getCoachingCueForSet(exercise, currentSet, totalSets);
+
+  function handleCompleteSet() {
+    const nextSet = currentSet + 1;
+
+    if (nextSet <= totalSets) {
+      router.replace({
+        pathname: '/exercise',
+        params: {
+          exerciseId: exercise.id,
+          set: String(nextSet),
+          totalSets: String(totalSets),
+        },
+      });
+      return;
+    }
+
+    const nextExerciseId = getNextExerciseId(exercise.id);
+
+    if (nextExerciseId) {
+      router.replace({
+        pathname: '/exercise',
+        params: {
+          exerciseId: nextExerciseId,
+          set: '1',
+          totalSets: String(totalSets),
+        },
+      });
+      return;
+    }
+
+    router.replace('/workout');
+  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -127,8 +160,10 @@ export default function ExerciseScreen() {
           <Text style={styles.secondaryButtonText}>Back</Text>
         </Pressable>
 
-        <Pressable style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Complete Set</Text>
+        <Pressable style={styles.primaryButton} onPress={handleCompleteSet}>
+          <Text style={styles.primaryButtonText}>
+            {currentSet < totalSets ? 'Complete Set' : 'Finish Exercise'}
+          </Text>
         </Pressable>
       </View>
     </ScrollView>

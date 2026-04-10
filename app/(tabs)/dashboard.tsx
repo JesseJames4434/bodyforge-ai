@@ -1,320 +1,277 @@
-import React, { useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import BodyVisual, {
-  BodyViewMode,
-  MuscleType,
-} from '../../components/BodyVisual';
-import {
-  COACH_INSIGHT,
-  DAILY_FOCUS,
-  WORKOUT_TEMPLATE,
-} from '../../constants/trainingData';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-function getDashboardVisualCopy(
-  muscleType: MuscleType,
-  bodyView: BodyViewMode
-) {
-  if (bodyView === 'front') {
-    if (muscleType === 'chest') {
-      return {
-        title: 'Today’s body focus',
-        subtitle: 'Front-chain chest emphasis',
-      };
-    }
-
-    if (muscleType === 'shoulder') {
-      return {
-        title: 'Today’s body focus',
-        subtitle: 'Front-chain shoulder emphasis',
-      };
-    }
-
-    if (muscleType === 'triceps') {
-      return {
-        title: 'Today’s body focus',
-        subtitle: 'Arm drive and pressing support',
-      };
-    }
-
-    return {
-      title: 'Today’s body focus',
-      subtitle: 'Primary target emphasis',
-    };
-  }
-
-  if (muscleType === 'back') {
-    return {
-      title: 'Today’s body focus',
-      subtitle: 'Rear-chain back emphasis',
-    };
-  }
-
-  if (muscleType === 'shoulder') {
-    return {
-      title: 'Today’s body focus',
-      subtitle: 'Rear shoulder reference view',
-    };
-  }
-
-  if (muscleType === 'triceps') {
-    return {
-      title: 'Today’s body focus',
-      subtitle: 'Back arm reference view',
-    };
-  }
-
-  return {
-    title: 'Today’s body focus',
-    subtitle: 'Rear body reference view',
-  };
-}
+import { getExerciseById, getExerciseOrder } from '../../constants/trainingData';
 
 export default function DashboardScreen() {
-  const [bodyView, setBodyView] = useState<BodyViewMode>('front');
+  const router = useRouter();
 
-  const visualCopy = useMemo(
-    () => getDashboardVisualCopy(DAILY_FOCUS.muscleType, bodyView),
-    [bodyView]
-  );
+  const exerciseIds = getExerciseOrder();
+  const exercises = exerciseIds.map((id) => getExerciseById(id));
+  const nextExercise = exercises[0];
+  const totalExercises = exercises.length;
 
-  const leadExercise = WORKOUT_TEMPLATE[0];
-  const exerciseCount = WORKOUT_TEMPLATE.length;
+  function startWorkout() {
+    router.push('/workout');
+  }
 
-  function goToWorkout() {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/workout';
-    }
+  function jumpToNextExercise() {
+    router.push({
+      pathname: '/exercise',
+      params: {
+        exerciseId: nextExercise.id,
+        set: '1',
+        totalSets: '3',
+      },
+    });
   }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>BODYFORGE AI</Text>
-        <Text style={styles.title}>Dashboard</Text>
-        <Text style={styles.subtitle}>Built. Not Given.</Text>
+      <View style={styles.hero}>
+        <Text style={styles.eyebrow}>Bodyforge AI</Text>
+        <Text style={styles.title}>Built. Not Given.</Text>
+        <Text style={styles.subtitle}>
+          Visual-first training with posture-state guidance and muscle-aware
+          coaching.
+        </Text>
+      </View>
+
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Exercises Today</Text>
+          <Text style={styles.statValue}>{totalExercises}</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Sets Per Exercise</Text>
+          <Text style={styles.statValue}>3</Text>
+        </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Body Status</Text>
+        <Text style={styles.cardTitle}>Next Up</Text>
+        <Text style={styles.exerciseName}>{nextExercise.name}</Text>
+        <Text style={styles.exerciseMeta}>
+          Default view: {nextExercise.defaultBodySide}
+        </Text>
 
-        <BodyVisual
-          bodyView={bodyView}
-          muscleType={DAILY_FOCUS.muscleType}
-          title={visualCopy.title}
-          subtitle={visualCopy.subtitle}
-          showToggle
-          onChangeView={setBodyView}
-        />
-      </View>
+        <View style={styles.muscleBox}>
+          <Text style={styles.muscleLabel}>Primary muscles</Text>
+          <Text style={styles.muscleValue}>
+            {nextExercise.muscles[nextExercise.defaultBodySide].join(' • ')}
+          </Text>
+        </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today’s Focus</Text>
-        <Text style={styles.focusTitle}>{DAILY_FOCUS.title}</Text>
-        <Text style={styles.focusSubtitle}>{DAILY_FOCUS.subtitle}</Text>
-
-        {leadExercise ? (
-          <View style={styles.leadExerciseCard}>
-            <Text style={styles.leadExerciseLabel}>Lead Exercise</Text>
-            <Text style={styles.leadExerciseName}>{leadExercise.name}</Text>
-            <Text style={styles.leadExerciseMeta}>
-              {leadExercise.primaryMuscle} • {leadExercise.sets} sets • {leadExercise.reps}
-            </Text>
+        <View style={styles.stateRow}>
+          <View style={styles.statePill}>
+            <Text style={styles.statePillText}>Setup</Text>
           </View>
-        ) : null}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Coach Insight</Text>
-        <Text style={styles.bodyText}>{COACH_INSIGHT}</Text>
-      </View>
-
-      <View style={styles.sessionCard}>
-        <View style={styles.sessionHeaderRow}>
-          <View>
-            <Text style={styles.sessionLabel}>Today’s Session</Text>
-            <Text style={styles.sessionTitle}>Guided Training Ready</Text>
+          <View style={styles.statePill}>
+            <Text style={styles.statePillText}>Stretch</Text>
           </View>
-
-          <View style={styles.sessionBadge}>
-            <Text style={styles.sessionBadgeText}>{exerciseCount} exercises</Text>
+          <View style={styles.statePill}>
+            <Text style={styles.statePillText}>Contraction</Text>
           </View>
         </View>
 
-        <Text style={styles.sessionText}>
-          Enter today’s sequence and move through the session with visual guidance,
-          set progression, and workout flow built around your target muscles.
-        </Text>
-
-        {Platform.OS === 'web' ? (
-          <button type="button" style={webButtonStyle} onClick={goToWorkout}>
-            Begin Today’s Session
-          </button>
-        ) : (
-          <Pressable style={styles.primaryButton} onPress={goToWorkout}>
-            <Text style={styles.primaryButtonText}>Begin Today’s Session</Text>
-          </Pressable>
-        )}
+        <Pressable style={styles.secondaryButton} onPress={jumpToNextExercise}>
+          <Text style={styles.secondaryButtonText}>Open Next Exercise</Text>
+        </Pressable>
       </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Session Flow</Text>
+
+        {exercises.map((exercise, index) => (
+          <View key={exercise.id} style={styles.flowRow}>
+            <View style={styles.flowBadge}>
+              <Text style={styles.flowBadgeText}>{index + 1}</Text>
+            </View>
+
+            <View style={styles.flowText}>
+              <Text style={styles.flowName}>{exercise.name}</Text>
+              <Text style={styles.flowMeta}>
+                {exercise.muscles[exercise.defaultBodySide].join(' • ')}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <Pressable style={styles.primaryButton} onPress={startWorkout}>
+        <Text style={styles.primaryButtonText}>Start Workout</Text>
+      </Pressable>
     </ScrollView>
   );
 }
 
-const webButtonStyle: React.CSSProperties = {
-  backgroundColor: '#F5F7FB',
-  color: '#07090D',
-  border: 'none',
-  borderRadius: '16px',
-  padding: '15px 20px',
-  width: '100%',
-  fontSize: '15px',
-  fontWeight: 800,
-  cursor: 'pointer',
-};
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#07090D',
+    backgroundColor: '#030712',
   },
   content: {
     padding: 20,
-    paddingBottom: 40,
+    gap: 16,
+    paddingBottom: 36,
   },
-  header: {
-    marginTop: 14,
-    marginBottom: 18,
+  hero: {
+    gap: 6,
+    marginTop: 12,
   },
   eyebrow: {
-    color: '#7C8799',
+    color: '#9ca3af',
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   title: {
-    color: '#F5F7FB',
+    color: '#f9fafb',
     fontSize: 32,
     fontWeight: '800',
-    marginBottom: 6,
   },
   subtitle: {
-    color: '#8E9AAF',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  card: {
-    backgroundColor: '#0E131B',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#1A2230',
-    marginBottom: 16,
-  },
-  cardTitle: {
-    color: '#22E37D',
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: 12,
-  },
-  focusTitle: {
-    color: '#F5F7FB',
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  focusSubtitle: {
-    color: '#A3AEC0',
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 14,
-  },
-  leadExerciseCard: {
-    backgroundColor: '#10151D',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1A2230',
-  },
-  leadExerciseLabel: {
-    color: '#8E9AAF',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  leadExerciseName: {
-    color: '#F5F7FB',
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  leadExerciseMeta: {
-    color: '#A3AEC0',
+    color: '#cbd5e1',
     fontSize: 14,
     lineHeight: 20,
   },
-  bodyText: {
-    color: '#E5EBF5',
-    fontSize: 18,
-    lineHeight: 28,
-    fontWeight: '600',
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  sessionCard: {
-    backgroundColor: '#10151D',
+  statCard: {
+    flex: 1,
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    gap: 6,
+  },
+  statLabel: {
+    color: '#9ca3af',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  statValue: {
+    color: '#f9fafb',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  card: {
+    backgroundColor: '#111827',
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#1A2230',
-    marginBottom: 18,
-  },
-  sessionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    borderColor: '#1f2937',
     gap: 12,
-    marginBottom: 12,
   },
-  sessionLabel: {
-    color: '#8E9AAF',
-    fontSize: 12,
+  cardTitle: {
+    color: '#f9fafb',
+    fontSize: 18,
     fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: 6,
   },
-  sessionTitle: {
-    color: '#F5F7FB',
+  exerciseName: {
+    color: '#f9fafb',
     fontSize: 22,
     fontWeight: '800',
   },
-  sessionBadge: {
-    backgroundColor: '#151C27',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#263143',
-  },
-  sessionBadgeText: {
-    color: '#E6ECF5',
+  exerciseMeta: {
+    color: '#9ca3af',
     fontSize: 13,
+  },
+  muscleBox: {
+    backgroundColor: '#0b1220',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    gap: 4,
+  },
+  muscleLabel: {
+    color: '#9ca3af',
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  muscleValue: {
+    color: '#f9fafb',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  stateRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  statePill: {
+    backgroundColor: '#1f2937',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  statePillText: {
+    color: '#f9fafb',
+    fontSize: 12,
     fontWeight: '700',
   },
-  sessionText: {
-    color: '#A3AEC0',
+  flowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  flowBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flowBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  flowText: {
+    flex: 1,
+    gap: 2,
+  },
+  flowName: {
+    color: '#f9fafb',
     fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 16,
+    fontWeight: '700',
+  },
+  flowMeta: {
+    color: '#9ca3af',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  secondaryButton: {
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  secondaryButtonText: {
+    color: '#f9fafb',
+    fontSize: 14,
+    fontWeight: '700',
   },
   primaryButton: {
-    backgroundColor: '#F5F7FB',
-    borderRadius: 16,
-    paddingVertical: 15,
+    backgroundColor: '#f97316',
+    borderRadius: 18,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: '#07090D',
+    color: '#ffffff',
     fontSize: 15,
     fontWeight: '800',
   },
