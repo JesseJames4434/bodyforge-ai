@@ -1,621 +1,399 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef } from "react";
+import { Animated, StyleSheet, Text, View } from "react-native";
 
-type BodySide = 'front' | 'back';
-type VisualProfile = 'press' | 'hinge' | 'curl';
+type Posture = "setup" | "stretch" | "contraction";
+type Profile = "press" | "hinge" | "curl";
 
-type PostureState = {
-  label: string;
-  shortCue: string;
-  detailCue: string;
-  overlay?: string;
+type PostureObject = {
+  label?: unknown;
+  shortCue?: unknown;
+  detailCue?: unknown;
+  overlay?: unknown;
 };
 
 type Props = {
-  side: BodySide;
-  highlightedMuscles: string[];
-  postureState?: PostureState;
-  visualProfile?: VisualProfile;
+  posture?: Posture | PostureObject;
+  postureState?: Posture | PostureObject;
+  state?: Posture | PostureObject;
+  visualProfile?: Profile;
+  exerciseType?: Profile;
+  profile?: Profile;
 };
 
-function getPoseLabel(postureState?: PostureState) {
-  const label = postureState?.label?.toLowerCase();
+export default function BodyVisual(props: Props) {
+  const posture = resolvePosture(props);
+  const profile = resolveProfile(props);
 
-  if (label === 'setup') return 'ATHLETIC SETUP';
-  if (label === 'stretch') return 'LOADED STRETCH';
-  if (label === 'contraction') return 'PEAK CONTRACTION';
+  const anim = useRef(new Animated.Value(getPostureValue(posture))).current;
 
-  return 'NEUTRAL';
-}
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: getPostureValue(posture),
+      duration: 320,
+      useNativeDriver: false,
+    }).start();
+  }, [posture, anim]);
 
-function getProfiledFigureStyles(
-  visualProfile: VisualProfile,
-  postureState?: PostureState
-) {
-  const state = postureState?.label?.toLowerCase() ?? 'setup';
+  const config = useMemo(() => {
+    switch (profile) {
+      case "hinge":
+        return {
+          leftShoulder: ["18deg", "34deg", "20deg"] as [string, string, string],
+          rightShoulder: ["-18deg", "-34deg", "-20deg"] as [string, string, string],
+          leftElbow: ["10deg", "18deg", "10deg"] as [string, string, string],
+          rightElbow: ["-10deg", "-18deg", "-10deg"] as [string, string, string],
+          torso: ["0deg", "12deg", "4deg"] as [string, string, string],
+          leftShift: [0, -2, 0] as [number, number, number],
+          rightShift: [0, 2, 0] as [number, number, number],
+          chestBase: 0.08,
+          backBase: 0.75,
+          armBase: 0.18,
+          legBase: 0.8,
+        };
 
-  if (visualProfile === 'hinge') {
-    if (state === 'stretch') {
-      return {
-        torso: styles.torsoHingeStretch,
-        leftArm: styles.leftArmHingeStretch,
-        rightArm: styles.rightArmHingeStretch,
-        leftLeg: styles.leftLegHingeStretch,
-        rightLeg: styles.rightLegHingeStretch,
-      };
+      case "curl":
+        return {
+          leftShoulder: ["20deg", "24deg", "16deg"] as [string, string, string],
+          rightShoulder: ["-20deg", "-24deg", "-16deg"] as [string, string, string],
+          leftElbow: ["-12deg", "-60deg", "-115deg"] as [string, string, string],
+          rightElbow: ["12deg", "60deg", "115deg"] as [string, string, string],
+          torso: ["0deg", "0deg", "0deg"] as [string, string, string],
+          leftShift: [0, 0, 0] as [number, number, number],
+          rightShift: [0, 0, 0] as [number, number, number],
+          chestBase: 0.08,
+          backBase: 0.08,
+          armBase: 0.85,
+          legBase: 0.08,
+        };
+
+      case "press":
+      default:
+        return {
+          leftShoulder: ["26deg", "58deg", "148deg"] as [string, string, string],
+          rightShoulder: ["-26deg", "-58deg", "-148deg"] as [string, string, string],
+          leftElbow: ["-42deg", "-88deg", "-16deg"] as [string, string, string],
+          rightElbow: ["42deg", "88deg", "16deg"] as [string, string, string],
+          torso: ["-2deg", "-8deg", "-2deg"] as [string, string, string],
+          leftShift: [0, -4, 10] as [number, number, number],
+          rightShift: [0, 4, -10] as [number, number, number],
+          chestBase: 0.82,
+          backBase: 0.08,
+          armBase: 0.58,
+          legBase: 0.08,
+        };
     }
+  }, [profile]);
 
-    if (state === 'contraction') {
-      return {
-        torso: styles.torsoHingeContraction,
-        leftArm: styles.leftArmHingeContraction,
-        rightArm: styles.rightArmHingeContraction,
-        leftLeg: styles.leftLegHingeContraction,
-        rightLeg: styles.rightLegHingeContraction,
-      };
-    }
+  const leftShoulderRotate = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: config.leftShoulder,
+  });
 
-    return {
-      torso: styles.torsoHingeSetup,
-      leftArm: styles.leftArmHingeSetup,
-      rightArm: styles.rightArmHingeSetup,
-      leftLeg: styles.leftLegHingeSetup,
-      rightLeg: styles.rightLegHingeSetup,
-    };
-  }
+  const rightShoulderRotate = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: config.rightShoulder,
+  });
 
-  if (visualProfile === 'curl') {
-    if (state === 'stretch') {
-      return {
-        torso: styles.torsoCurlStretch,
-        leftArm: styles.leftArmCurlStretch,
-        rightArm: styles.rightArmCurlStretch,
-        leftLeg: styles.leftLegCurlStretch,
-        rightLeg: styles.rightLegCurlStretch,
-      };
-    }
+  const leftElbowRotate = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: config.leftElbow,
+  });
 
-    if (state === 'contraction') {
-      return {
-        torso: styles.torsoCurlContraction,
-        leftArm: styles.leftArmCurlContraction,
-        rightArm: styles.rightArmCurlContraction,
-        leftLeg: styles.leftLegCurlContraction,
-        rightLeg: styles.rightLegCurlContraction,
-      };
-    }
+  const rightElbowRotate = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: config.rightElbow,
+  });
 
-    return {
-      torso: styles.torsoCurlSetup,
-      leftArm: styles.leftArmCurlSetup,
-      rightArm: styles.rightArmCurlSetup,
-      leftLeg: styles.leftLegCurlSetup,
-      rightLeg: styles.rightLegCurlSetup,
-    };
-  }
+  const torsoRotate = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: config.torso,
+  });
 
-  if (state === 'stretch') {
-    return {
-      torso: styles.torsoPressStretch,
-      leftArm: styles.leftArmPressStretch,
-      rightArm: styles.rightArmPressStretch,
-      leftLeg: styles.leftLegPressStretch,
-      rightLeg: styles.rightLegPressStretch,
-    };
-  }
+  const leftArmShift = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: config.leftShift,
+  });
 
-  if (state === 'contraction') {
-    return {
-      torso: styles.torsoPressContraction,
-      leftArm: styles.leftArmPressContraction,
-      rightArm: styles.rightArmPressContraction,
-      leftLeg: styles.leftLegPressContraction,
-      rightLeg: styles.rightLegPressContraction,
-    };
-  }
+  const rightArmShift = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: config.rightShift,
+  });
 
-  return {
-    torso: styles.torsoPressSetup,
-    leftArm: styles.leftArmPressSetup,
-    rightArm: styles.rightArmPressSetup,
-    leftLeg: styles.leftLegPressSetup,
-    rightLeg: styles.rightLegPressSetup,
-  };
-}
+  const intensity = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [0.35, 0.65, 1],
+  });
 
-function getMuscleHighlightTone(postureState?: PostureState) {
-  const label = postureState?.label?.toLowerCase();
+  const chestOpacity = profile === "press" ? intensity : config.chestBase;
+  const backOpacity = profile === "hinge" ? intensity : config.backBase;
 
-  if (label === 'stretch') return styles.highlightStretch;
-  if (label === 'contraction') return styles.highlightContraction;
+  const armOpacity =
+    profile === "curl"
+      ? intensity
+      : profile === "press"
+        ? anim.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [0.45, 0.68, 0.82],
+          })
+        : config.armBase;
 
-  return styles.highlightSetup;
-}
-
-function getFocusCue(
-  visualProfile: VisualProfile,
-  postureState?: PostureState
-) {
-  const state = postureState?.label?.toLowerCase();
-
-  if (visualProfile === 'hinge') {
-    if (state === 'setup') return 'Focus: brace hard and own the hinge start.';
-    if (state === 'stretch') return 'Focus: send hips back and load hamstrings.';
-    return 'Focus: drive hips through and finish tall.';
-  }
-
-  if (visualProfile === 'curl') {
-    if (state === 'setup') return 'Focus: pin the elbows and remove swing.';
-    if (state === 'stretch') return 'Focus: lengthen fully without losing tension.';
-    return 'Focus: squeeze the biceps and keep shoulders quiet.';
-  }
-
-  if (state === 'setup') return 'Focus: brace, align, and prepare.';
-  if (state === 'stretch') return 'Focus: control depth and stay loaded.';
-  if (state === 'contraction') return 'Focus: squeeze hard and finish clean.';
-
-  return 'Focus: stay controlled.';
-}
-
-function formatMuscleList(highlightedMuscles: string[]) {
-  if (highlightedMuscles.length === 0) return 'None selected';
-
-  return highlightedMuscles.join(' • ');
-}
-
-export default function BodyVisual({
-  side,
-  highlightedMuscles,
-  postureState,
-  visualProfile = 'press',
-}: Props) {
-  const poseLabel = getPoseLabel(postureState);
-  const figureStyles = getProfiledFigureStyles(visualProfile, postureState);
-  const highlightTone = getMuscleHighlightTone(postureState);
-  const focusCue = getFocusCue(visualProfile, postureState);
+  const legOpacity = profile === "hinge" ? intensity : config.legBase;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.eyebrow}>Body Visual</Text>
-            <Text style={styles.title}>
-              {side === 'front' ? 'Front View' : 'Back View'}
-            </Text>
-          </View>
+    <View style={styles.wrapper}>
+      <View style={styles.figureBox}>
+        <Animated.View
+          style={[
+            styles.figure,
+            {
+              transform: [{ rotate: torsoRotate }],
+            },
+          ]}
+        >
+          <View style={styles.head} />
 
-          {postureState?.overlay ? (
-            <View style={styles.overlay}>
-              <Text style={styles.overlayText}>{postureState.overlay}</Text>
+          <View style={styles.upperBodyRow}>
+            <Animated.View
+              style={[
+                styles.upperArm,
+                styles.leftUpperArm,
+                {
+                  transform: [
+                    { translateX: leftArmShift },
+                    { rotate: leftShoulderRotate },
+                  ],
+                },
+              ]}
+            >
+              <Animated.View style={[styles.armHighlight, { opacity: armOpacity }]} />
+              <Animated.View
+                style={[
+                  styles.lowerArm,
+                  { transform: [{ rotate: leftElbowRotate }] },
+                ]}
+              />
+            </Animated.View>
+
+            <View style={styles.torso}>
+              <Animated.View style={[styles.chestHighlight, { opacity: chestOpacity }]} />
+              <Animated.View style={[styles.backHighlight, { opacity: backOpacity }]} />
+              <View style={styles.coreHighlight} />
             </View>
-          ) : null}
-        </View>
 
-        <View style={styles.stage}>
-          <Text style={styles.poseLabel}>{poseLabel}</Text>
+            <Animated.View
+              style={[
+                styles.upperArm,
+                styles.rightUpperArm,
+                {
+                  transform: [
+                    { translateX: rightArmShift },
+                    { rotate: rightShoulderRotate },
+                  ],
+                },
+              ]}
+            >
+              <Animated.View style={[styles.armHighlight, { opacity: armOpacity }]} />
+              <Animated.View
+                style={[
+                  styles.lowerArm,
+                  { transform: [{ rotate: rightElbowRotate }] },
+                ]}
+              />
+            </Animated.View>
+          </View>
 
-          <View style={styles.figureWrap}>
-            <View style={styles.head} />
-
-            <View style={[styles.torsoBase, figureStyles.torso]}>
-              <View style={[styles.torsoHighlight, highlightTone]} />
-              <Text style={styles.sideText}>
-                {side === 'front' ? 'FRONT' : 'BACK'}
-              </Text>
+          <View style={styles.legsRow}>
+            <View style={styles.leg}>
+              <Animated.View style={[styles.legHighlight, { opacity: legOpacity }]} />
             </View>
-
-            <View
-              style={[
-                styles.armBase,
-                styles.leftArmBase,
-                figureStyles.leftArm,
-                highlightTone,
-              ]}
-            />
-            <View
-              style={[
-                styles.armBase,
-                styles.rightArmBase,
-                figureStyles.rightArm,
-                highlightTone,
-              ]}
-            />
-
-            <View
-              style={[
-                styles.legBase,
-                styles.leftLegBase,
-                figureStyles.leftLeg,
-                highlightTone,
-              ]}
-            />
-            <View
-              style={[
-                styles.legBase,
-                styles.rightLegBase,
-                figureStyles.rightLeg,
-                highlightTone,
-              ]}
-            />
+            <View style={styles.leg}>
+              <Animated.View style={[styles.legHighlight, { opacity: legOpacity }]} />
+            </View>
           </View>
-        </View>
-
-        <View style={styles.focusBox}>
-          <Text style={styles.focusLabel}>Movement Focus</Text>
-          <Text style={styles.focusText}>{focusCue}</Text>
-        </View>
-
-        <View style={styles.muscleBox}>
-          <Text style={styles.muscleLabel}>Active Muscles</Text>
-          <Text style={styles.muscleValue}>
-            {formatMuscleList(highlightedMuscles)}
-          </Text>
-        </View>
-
-        {postureState ? (
-          <View style={styles.statePill}>
-            <Text style={styles.stateText}>{postureState.label}</Text>
-          </View>
-        ) : null}
+        </Animated.View>
       </View>
+
+      <Text style={styles.debugText}>
+        profile: {profile} | posture: {posture}
+      </Text>
     </View>
   );
 }
 
+function resolvePosture(props: Props): Posture {
+  const raw = props.posture ?? props.postureState ?? props.state ?? "setup";
+
+  if (typeof raw === "string") {
+    return normalizePosture(raw);
+  }
+
+  if (raw && typeof raw === "object") {
+    const maybeLabel = (raw as Record<string, unknown>)["label"];
+    if (typeof maybeLabel === "string") {
+      return normalizePosture(maybeLabel);
+    }
+  }
+
+  return "setup";
+}
+
+function normalizePosture(value: string): Posture {
+  const lower = value.toLowerCase();
+
+  if (lower.includes("stretch")) return "stretch";
+  if (lower.includes("contract")) return "contraction";
+  if (lower.includes("setup")) return "setup";
+
+  if (value === "setup" || value === "stretch" || value === "contraction") {
+    return value;
+  }
+
+  return "setup";
+}
+
+function resolveProfile(props: Props): Profile {
+  const raw = props.visualProfile ?? props.exerciseType ?? props.profile ?? "press";
+  if (raw === "press" || raw === "hinge" || raw === "curl") {
+    return raw;
+  }
+  return "press";
+}
+
+function getPostureValue(posture: Posture) {
+  switch (posture) {
+    case "stretch":
+      return 1;
+    case "contraction":
+      return 2;
+    case "setup":
+    default:
+      return 0;
+  }
+}
+
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
+  wrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
   },
-  card: {
-    width: '100%',
-    backgroundColor: '#111827',
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    gap: 14,
+  figureBox: {
+    width: 240,
+    height: 300,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  eyebrow: {
-    color: '#9ca3af',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  title: {
-    color: '#f9fafb',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  overlay: {
-    backgroundColor: '#f97316',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  overlayText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  stage: {
-    height: 280,
-    borderRadius: 20,
-    backgroundColor: '#0b1220',
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 20,
-  },
-  poseLabel: {
-    position: 'absolute',
-    top: 14,
-    color: '#9ca3af',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  figureWrap: {
-    width: 180,
-    height: 210,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    position: 'relative',
+  figure: {
+    alignItems: "center",
+    justifyContent: "flex-start",
   },
   head: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#6b7280',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#A1A1AA",
     marginBottom: 8,
   },
-  torsoBase: {
-    width: 68,
-    height: 88,
+  upperBodyRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  torso: {
+    width: 58,
+    height: 96,
     borderRadius: 18,
-    backgroundColor: '#374151',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    backgroundColor: "#8F8F94",
+    alignItems: "center",
+    position: "relative",
   },
-  torsoHighlight: {
-    position: 'absolute',
-    width: 42,
-    height: 58,
-    borderRadius: 14,
-    opacity: 0.95,
+  chestHighlight: {
+    position: "absolute",
+    top: 16,
+    width: 30,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#FF7A18",
   },
-
-  torsoPressSetup: {
-    marginTop: 0,
+  backHighlight: {
+    position: "absolute",
+    top: 40,
+    width: 24,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#FF7A18",
   },
-  torsoPressStretch: {
-    marginTop: 10,
-    transform: [{ rotate: '8deg' }],
-  },
-  torsoPressContraction: {
-    marginTop: -2,
-    transform: [{ rotate: '-6deg' }],
-  },
-
-  torsoHingeSetup: {
-    marginTop: 0,
-  },
-  torsoHingeStretch: {
-    marginTop: 18,
-    transform: [{ rotate: '18deg' }],
-  },
-  torsoHingeContraction: {
-    marginTop: 2,
-    transform: [{ rotate: '4deg' }],
-  },
-
-  torsoCurlSetup: {
-    marginTop: 0,
-  },
-  torsoCurlStretch: {
-    marginTop: 4,
-  },
-  torsoCurlContraction: {
-    marginTop: 0,
-  },
-
-  sideText: {
-    color: '#f9fafb',
-    fontSize: 11,
-    fontWeight: '700',
-    zIndex: 1,
-  },
-  armBase: {
-    position: 'absolute',
+  coreHighlight: {
+    position: "absolute",
+    top: 58,
     width: 18,
-    height: 78,
-    borderRadius: 12,
-    backgroundColor: '#4b5563',
-    top: 46,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#A39CA3",
+    opacity: 0.45,
   },
-  leftArmBase: {
-    left: 34,
+  upperArm: {
+    width: 16,
+    height: 54,
+    borderRadius: 9,
+    backgroundColor: "#A1A1AA",
+    marginTop: 6,
+    position: "relative",
   },
-  rightArmBase: {
-    right: 34,
+  leftUpperArm: {
+    marginRight: 12,
+    transformOrigin: "top center" as never,
   },
-
-  leftArmPressSetup: {
-    transform: [{ rotate: '18deg' }],
+  rightUpperArm: {
+    marginLeft: 12,
+    transformOrigin: "top center" as never,
   },
-  rightArmPressSetup: {
-    transform: [{ rotate: '-18deg' }],
+  armHighlight: {
+    position: "absolute",
+    top: 16,
+    left: 2,
+    right: 2,
+    height: 18,
+    borderRadius: 8,
+    backgroundColor: "#FF7A18",
   },
-  leftArmPressStretch: {
-    transform: [{ rotate: '42deg' }],
+  lowerArm: {
+    position: "absolute",
+    top: 42,
+    left: 2,
+    width: 12,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: "#8F8F94",
+    transformOrigin: "top center" as never,
   },
-  rightArmPressStretch: {
-    transform: [{ rotate: '-42deg' }],
+  legsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 14,
+    marginTop: 10,
   },
-  leftArmPressContraction: {
-    transform: [{ rotate: '-20deg' }],
-    top: 58,
+  leg: {
+    width: 16,
+    height: 86,
+    borderRadius: 10,
+    backgroundColor: "#7C7C84",
+    position: "relative",
   },
-  rightArmPressContraction: {
-    transform: [{ rotate: '20deg' }],
-    top: 58,
+  legHighlight: {
+    position: "absolute",
+    top: 16,
+    left: 2,
+    right: 2,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: "#FF7A18",
   },
-
-  leftArmHingeSetup: {
-    transform: [{ rotate: '8deg' }],
-    top: 50,
-  },
-  rightArmHingeSetup: {
-    transform: [{ rotate: '-8deg' }],
-    top: 50,
-  },
-  leftArmHingeStretch: {
-    transform: [{ rotate: '20deg' }],
-    top: 72,
-  },
-  rightArmHingeStretch: {
-    transform: [{ rotate: '-20deg' }],
-    top: 72,
-  },
-  leftArmHingeContraction: {
-    transform: [{ rotate: '10deg' }],
-    top: 54,
-  },
-  rightArmHingeContraction: {
-    transform: [{ rotate: '-10deg' }],
-    top: 54,
-  },
-
-  leftArmCurlSetup: {
-    transform: [{ rotate: '10deg' }],
-    top: 48,
-  },
-  rightArmCurlSetup: {
-    transform: [{ rotate: '-10deg' }],
-    top: 48,
-  },
-  leftArmCurlStretch: {
-    transform: [{ rotate: '6deg' }],
-    top: 54,
-  },
-  rightArmCurlStretch: {
-    transform: [{ rotate: '-6deg' }],
-    top: 54,
-  },
-  leftArmCurlContraction: {
-    transform: [{ rotate: '-38deg' }],
-    top: 52,
-  },
-  rightArmCurlContraction: {
-    transform: [{ rotate: '38deg' }],
-    top: 52,
-  },
-
-  legBase: {
-    position: 'absolute',
-    width: 20,
-    height: 84,
-    borderRadius: 12,
-    backgroundColor: '#374151',
-    top: 118,
-  },
-  leftLegBase: {
-    left: 60,
-  },
-  rightLegBase: {
-    right: 60,
-  },
-
-  leftLegPressSetup: {
-    transform: [{ rotate: '6deg' }],
-  },
-  rightLegPressSetup: {
-    transform: [{ rotate: '-6deg' }],
-  },
-  leftLegPressStretch: {
-    transform: [{ rotate: '12deg' }],
-    top: 122,
-  },
-  rightLegPressStretch: {
-    transform: [{ rotate: '-12deg' }],
-    top: 122,
-  },
-  leftLegPressContraction: {
-    transform: [{ rotate: '2deg' }],
-    top: 116,
-  },
-  rightLegPressContraction: {
-    transform: [{ rotate: '-2deg' }],
-    top: 116,
-  },
-
-  leftLegHingeSetup: {
-    transform: [{ rotate: '4deg' }],
-  },
-  rightLegHingeSetup: {
-    transform: [{ rotate: '-4deg' }],
-  },
-  leftLegHingeStretch: {
-    transform: [{ rotate: '16deg' }],
-    top: 126,
-  },
-  rightLegHingeStretch: {
-    transform: [{ rotate: '-16deg' }],
-    top: 126,
-  },
-  leftLegHingeContraction: {
-    transform: [{ rotate: '6deg' }],
-    top: 118,
-  },
-  rightLegHingeContraction: {
-    transform: [{ rotate: '-6deg' }],
-    top: 118,
-  },
-
-  leftLegCurlSetup: {
-    transform: [{ rotate: '5deg' }],
-  },
-  rightLegCurlSetup: {
-    transform: [{ rotate: '-5deg' }],
-  },
-  leftLegCurlStretch: {
-    transform: [{ rotate: '5deg' }],
-  },
-  rightLegCurlStretch: {
-    transform: [{ rotate: '-5deg' }],
-  },
-  leftLegCurlContraction: {
-    transform: [{ rotate: '5deg' }],
-  },
-  rightLegCurlContraction: {
-    transform: [{ rotate: '-5deg' }],
-  },
-
-  highlightSetup: {
-    backgroundColor: '#fb923c',
-  },
-  highlightStretch: {
-    backgroundColor: '#f59e0b',
-  },
-  highlightContraction: {
-    backgroundColor: '#f97316',
-  },
-  focusBox: {
-    backgroundColor: '#0b1220',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    gap: 4,
-  },
-  focusLabel: {
-    color: '#9ca3af',
-    fontSize: 11,
-    textTransform: 'uppercase',
-  },
-  focusText: {
-    color: '#f9fafb',
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  muscleBox: {
-    backgroundColor: '#0b1220',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-  },
-  muscleLabel: {
-    color: '#9ca3af',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  muscleValue: {
-    color: '#f9fafb',
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  statePill: {
-    alignSelf: 'center',
-    backgroundColor: '#1f2937',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  stateText: {
-    color: '#f9fafb',
+  debugText: {
+    marginTop: 10,
+    color: "#9CA3AF",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "600",
   },
 });
