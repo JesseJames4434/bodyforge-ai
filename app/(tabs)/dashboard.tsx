@@ -64,6 +64,11 @@ export default function DashboardScreen() {
           </Text>
         </View>
 
+        <View style={styles.focusBox}>
+          <Text style={styles.focusLabel}>Focus</Text>
+          <Text style={styles.focusText}>{nextExercise.dashboardFocus}</Text>
+        </View>
+
         <View style={styles.stateRow}>
           <View style={styles.statePill}>
             <Text style={styles.statePillText}>Setup</Text>
@@ -79,6 +84,24 @@ export default function DashboardScreen() {
         <Pressable style={styles.secondaryButton} onPress={jumpToNextExercise}>
           <Text style={styles.secondaryButtonText}>Open Next Exercise</Text>
         </Pressable>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Today's Focus</Text>
+
+        <View style={styles.focusList}>
+          {exercises.map((exercise) => (
+            <View key={exercise.id} style={styles.focusItem}>
+              <View style={styles.focusDot} />
+              <View style={styles.focusItemText}>
+                <Text style={styles.focusExerciseName}>{exercise.name}</Text>
+                <Text style={styles.focusExerciseText}>
+                  {exercise.dashboardFocus}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -202,6 +225,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 18,
   },
+  focusBox: {
+    backgroundColor: '#0b1220',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    gap: 4,
+  },
+  focusLabel: {
+    color: '#9ca3af',
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  focusText: {
+    color: '#f3f4f6',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
   stateRow: {
     flexDirection: 'row',
     gap: 8,
@@ -217,6 +259,36 @@ const styles = StyleSheet.create({
     color: '#f9fafb',
     fontSize: 12,
     fontWeight: '700',
+  },
+  focusList: {
+    gap: 12,
+  },
+  focusItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  focusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f97316',
+    marginTop: 6,
+  },
+  focusItemText: {
+    flex: 1,
+    gap: 3,
+  },
+  focusExerciseName: {
+    color: '#f9fafb',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  focusExerciseText: {
+    color: '#f3f4f6',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
   },
   flowRow: {
     flexDirection: 'row',

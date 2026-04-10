@@ -10,6 +10,18 @@ import {
   type PostureStateKey,
 } from '../constants/trainingData';
 
+function getMovementFocus(state: PostureStateKey) {
+  if (state === 'setup') {
+    return 'Build your position before the rep starts.';
+  }
+
+  if (state === 'stretch') {
+    return 'Stay controlled at depth and keep tension loaded.';
+  }
+
+  return 'Finish with intent and keep the rep clean.';
+}
+
 export default function ExerciseScreen() {
   const router = useRouter();
 
@@ -33,6 +45,7 @@ export default function ExerciseScreen() {
 
   const postureState = exercise.postureStates[selectedState];
   const coachingCue = getCoachingCueForSet(exercise, currentSet, totalSets);
+  const movementFocus = getMovementFocus(selectedState);
 
   function handleCompleteSet() {
     const nextSet = currentSet + 1;
@@ -117,6 +130,13 @@ export default function ExerciseScreen() {
         <View style={styles.stateBox}>
           <Text style={styles.stateTitle}>{postureState.shortCue}</Text>
           <Text style={styles.stateBody}>{postureState.detailCue}</Text>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Movement Focus</Text>
+        <View style={styles.focusBox}>
+          <Text style={styles.focusText}>{movementFocus}</Text>
         </View>
       </View>
 
@@ -257,6 +277,19 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     fontSize: 14,
     lineHeight: 20,
+  },
+  focusBox: {
+    backgroundColor: '#0b1220',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+  },
+  focusText: {
+    color: '#f3f4f6',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
   },
   coachingText: {
     color: '#f3f4f6',

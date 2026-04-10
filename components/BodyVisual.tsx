@@ -67,6 +67,16 @@ function getMuscleHighlightTone(postureState?: PostureState) {
   return styles.highlightSetup;
 }
 
+function getFocusCue(postureState?: PostureState) {
+  const label = postureState?.label?.toLowerCase();
+
+  if (label === 'setup') return 'Focus: brace, align, and prepare.';
+  if (label === 'stretch') return 'Focus: control depth and stay loaded.';
+  if (label === 'contraction') return 'Focus: squeeze hard and finish clean.';
+
+  return 'Focus: stay controlled.';
+}
+
 function formatMuscleList(highlightedMuscles: string[]) {
   if (highlightedMuscles.length === 0) return 'None selected';
 
@@ -81,6 +91,7 @@ export default function BodyVisual({
   const poseLabel = getPoseLabel(postureState);
   const figureStyles = getFigureStyles(postureState);
   const highlightTone = getMuscleHighlightTone(postureState);
+  const focusCue = getFocusCue(postureState);
 
   return (
     <View style={styles.container}>
@@ -147,6 +158,11 @@ export default function BodyVisual({
               ]}
             />
           </View>
+        </View>
+
+        <View style={styles.focusBox}>
+          <Text style={styles.focusLabel}>Movement Focus</Text>
+          <Text style={styles.focusText}>{focusCue}</Text>
         </View>
 
         <View style={styles.muscleBox}>
@@ -350,6 +366,25 @@ const styles = StyleSheet.create({
   },
   highlightContraction: {
     backgroundColor: '#f97316',
+  },
+  focusBox: {
+    backgroundColor: '#0b1220',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    gap: 4,
+  },
+  focusLabel: {
+    color: '#9ca3af',
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  focusText: {
+    color: '#f9fafb',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   muscleBox: {
     backgroundColor: '#0b1220',
