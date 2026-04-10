@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 type BodySide = 'front' | 'back';
+type VisualProfile = 'press' | 'hinge' | 'curl';
 
 type PostureState = {
   label: string;
@@ -14,6 +15,7 @@ type Props = {
   side: BodySide;
   highlightedMuscles: string[];
   postureState?: PostureState;
+  visualProfile?: VisualProfile;
 };
 
 function getPoseLabel(postureState?: PostureState) {
@@ -26,35 +28,98 @@ function getPoseLabel(postureState?: PostureState) {
   return 'NEUTRAL';
 }
 
-function getFigureStyles(postureState?: PostureState) {
-  const label = postureState?.label?.toLowerCase();
+function getProfiledFigureStyles(
+  visualProfile: VisualProfile,
+  postureState?: PostureState
+) {
+  const state = postureState?.label?.toLowerCase() ?? 'setup';
 
-  if (label === 'stretch') {
+  if (visualProfile === 'hinge') {
+    if (state === 'stretch') {
+      return {
+        torso: styles.torsoHingeStretch,
+        leftArm: styles.leftArmHingeStretch,
+        rightArm: styles.rightArmHingeStretch,
+        leftLeg: styles.leftLegHingeStretch,
+        rightLeg: styles.rightLegHingeStretch,
+      };
+    }
+
+    if (state === 'contraction') {
+      return {
+        torso: styles.torsoHingeContraction,
+        leftArm: styles.leftArmHingeContraction,
+        rightArm: styles.rightArmHingeContraction,
+        leftLeg: styles.leftLegHingeContraction,
+        rightLeg: styles.rightLegHingeContraction,
+      };
+    }
+
     return {
-      torso: styles.torsoStretch,
-      leftArm: styles.leftArmStretch,
-      rightArm: styles.rightArmStretch,
-      leftLeg: styles.leftLegStretch,
-      rightLeg: styles.rightLegStretch,
+      torso: styles.torsoHingeSetup,
+      leftArm: styles.leftArmHingeSetup,
+      rightArm: styles.rightArmHingeSetup,
+      leftLeg: styles.leftLegHingeSetup,
+      rightLeg: styles.rightLegHingeSetup,
     };
   }
 
-  if (label === 'contraction') {
+  if (visualProfile === 'curl') {
+    if (state === 'stretch') {
+      return {
+        torso: styles.torsoCurlStretch,
+        leftArm: styles.leftArmCurlStretch,
+        rightArm: styles.rightArmCurlStretch,
+        leftLeg: styles.leftLegCurlStretch,
+        rightLeg: styles.rightLegCurlStretch,
+      };
+    }
+
+    if (state === 'contraction') {
+      return {
+        torso: styles.torsoCurlContraction,
+        leftArm: styles.leftArmCurlContraction,
+        rightArm: styles.rightArmCurlContraction,
+        leftLeg: styles.leftLegCurlContraction,
+        rightLeg: styles.rightLegCurlContraction,
+      };
+    }
+
     return {
-      torso: styles.torsoContraction,
-      leftArm: styles.leftArmContraction,
-      rightArm: styles.rightArmContraction,
-      leftLeg: styles.leftLegContraction,
-      rightLeg: styles.rightLegContraction,
+      torso: styles.torsoCurlSetup,
+      leftArm: styles.leftArmCurlSetup,
+      rightArm: styles.rightArmCurlSetup,
+      leftLeg: styles.leftLegCurlSetup,
+      rightLeg: styles.rightLegCurlSetup,
+    };
+  }
+
+  if (state === 'stretch') {
+    return {
+      torso: styles.torsoPressStretch,
+      leftArm: styles.leftArmPressStretch,
+      rightArm: styles.rightArmPressStretch,
+      leftLeg: styles.leftLegPressStretch,
+      rightLeg: styles.rightLegPressStretch,
+    };
+  }
+
+  if (state === 'contraction') {
+    return {
+      torso: styles.torsoPressContraction,
+      leftArm: styles.leftArmPressContraction,
+      rightArm: styles.rightArmPressContraction,
+      leftLeg: styles.leftLegPressContraction,
+      rightLeg: styles.rightLegPressContraction,
     };
   }
 
   return {
-    torso: styles.torsoSetup,
-    leftArm: styles.leftArmSetup,
-    rightArm: styles.rightArmSetup,
-    leftLeg: styles.leftLegSetup,
-    rightLeg: styles.rightLegSetup,
+    torso: styles.torsoPressSetup,
+    leftArm: styles.leftArmPressSetup,
+    rightArm: styles.rightArmPressSetup,
+    leftLeg: styles.leftLegPressSetup,
+    rightLeg: styles.rightLegPressSetup,
   };
 }
 
@@ -67,12 +132,27 @@ function getMuscleHighlightTone(postureState?: PostureState) {
   return styles.highlightSetup;
 }
 
-function getFocusCue(postureState?: PostureState) {
-  const label = postureState?.label?.toLowerCase();
+function getFocusCue(
+  visualProfile: VisualProfile,
+  postureState?: PostureState
+) {
+  const state = postureState?.label?.toLowerCase();
 
-  if (label === 'setup') return 'Focus: brace, align, and prepare.';
-  if (label === 'stretch') return 'Focus: control depth and stay loaded.';
-  if (label === 'contraction') return 'Focus: squeeze hard and finish clean.';
+  if (visualProfile === 'hinge') {
+    if (state === 'setup') return 'Focus: brace hard and own the hinge start.';
+    if (state === 'stretch') return 'Focus: send hips back and load hamstrings.';
+    return 'Focus: drive hips through and finish tall.';
+  }
+
+  if (visualProfile === 'curl') {
+    if (state === 'setup') return 'Focus: pin the elbows and remove swing.';
+    if (state === 'stretch') return 'Focus: lengthen fully without losing tension.';
+    return 'Focus: squeeze the biceps and keep shoulders quiet.';
+  }
+
+  if (state === 'setup') return 'Focus: brace, align, and prepare.';
+  if (state === 'stretch') return 'Focus: control depth and stay loaded.';
+  if (state === 'contraction') return 'Focus: squeeze hard and finish clean.';
 
   return 'Focus: stay controlled.';
 }
@@ -87,11 +167,12 @@ export default function BodyVisual({
   side,
   highlightedMuscles,
   postureState,
+  visualProfile = 'press',
 }: Props) {
   const poseLabel = getPoseLabel(postureState);
-  const figureStyles = getFigureStyles(postureState);
+  const figureStyles = getProfiledFigureStyles(visualProfile, postureState);
   const highlightTone = getMuscleHighlightTone(postureState);
-  const focusCue = getFocusCue(postureState);
+  const focusCue = getFocusCue(visualProfile, postureState);
 
   return (
     <View style={styles.container}>
@@ -271,17 +352,41 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     opacity: 0.95,
   },
-  torsoSetup: {
+
+  torsoPressSetup: {
     marginTop: 0,
   },
-  torsoStretch: {
+  torsoPressStretch: {
     marginTop: 10,
     transform: [{ rotate: '8deg' }],
   },
-  torsoContraction: {
+  torsoPressContraction: {
     marginTop: -2,
     transform: [{ rotate: '-6deg' }],
   },
+
+  torsoHingeSetup: {
+    marginTop: 0,
+  },
+  torsoHingeStretch: {
+    marginTop: 18,
+    transform: [{ rotate: '18deg' }],
+  },
+  torsoHingeContraction: {
+    marginTop: 2,
+    transform: [{ rotate: '4deg' }],
+  },
+
+  torsoCurlSetup: {
+    marginTop: 0,
+  },
+  torsoCurlStretch: {
+    marginTop: 4,
+  },
+  torsoCurlContraction: {
+    marginTop: 0,
+  },
+
   sideText: {
     color: '#f9fafb',
     fontSize: 11,
@@ -302,26 +407,78 @@ const styles = StyleSheet.create({
   rightArmBase: {
     right: 34,
   },
-  leftArmSetup: {
+
+  leftArmPressSetup: {
     transform: [{ rotate: '18deg' }],
   },
-  rightArmSetup: {
+  rightArmPressSetup: {
     transform: [{ rotate: '-18deg' }],
   },
-  leftArmStretch: {
+  leftArmPressStretch: {
     transform: [{ rotate: '42deg' }],
   },
-  rightArmStretch: {
+  rightArmPressStretch: {
     transform: [{ rotate: '-42deg' }],
   },
-  leftArmContraction: {
+  leftArmPressContraction: {
     transform: [{ rotate: '-20deg' }],
     top: 58,
   },
-  rightArmContraction: {
+  rightArmPressContraction: {
     transform: [{ rotate: '20deg' }],
     top: 58,
   },
+
+  leftArmHingeSetup: {
+    transform: [{ rotate: '8deg' }],
+    top: 50,
+  },
+  rightArmHingeSetup: {
+    transform: [{ rotate: '-8deg' }],
+    top: 50,
+  },
+  leftArmHingeStretch: {
+    transform: [{ rotate: '20deg' }],
+    top: 72,
+  },
+  rightArmHingeStretch: {
+    transform: [{ rotate: '-20deg' }],
+    top: 72,
+  },
+  leftArmHingeContraction: {
+    transform: [{ rotate: '10deg' }],
+    top: 54,
+  },
+  rightArmHingeContraction: {
+    transform: [{ rotate: '-10deg' }],
+    top: 54,
+  },
+
+  leftArmCurlSetup: {
+    transform: [{ rotate: '10deg' }],
+    top: 48,
+  },
+  rightArmCurlSetup: {
+    transform: [{ rotate: '-10deg' }],
+    top: 48,
+  },
+  leftArmCurlStretch: {
+    transform: [{ rotate: '6deg' }],
+    top: 54,
+  },
+  rightArmCurlStretch: {
+    transform: [{ rotate: '-6deg' }],
+    top: 54,
+  },
+  leftArmCurlContraction: {
+    transform: [{ rotate: '-38deg' }],
+    top: 52,
+  },
+  rightArmCurlContraction: {
+    transform: [{ rotate: '38deg' }],
+    top: 52,
+  },
+
   legBase: {
     position: 'absolute',
     width: 20,
@@ -336,28 +493,72 @@ const styles = StyleSheet.create({
   rightLegBase: {
     right: 60,
   },
-  leftLegSetup: {
+
+  leftLegPressSetup: {
     transform: [{ rotate: '6deg' }],
   },
-  rightLegSetup: {
+  rightLegPressSetup: {
     transform: [{ rotate: '-6deg' }],
   },
-  leftLegStretch: {
+  leftLegPressStretch: {
     transform: [{ rotate: '12deg' }],
     top: 122,
   },
-  rightLegStretch: {
+  rightLegPressStretch: {
     transform: [{ rotate: '-12deg' }],
     top: 122,
   },
-  leftLegContraction: {
+  leftLegPressContraction: {
     transform: [{ rotate: '2deg' }],
     top: 116,
   },
-  rightLegContraction: {
+  rightLegPressContraction: {
     transform: [{ rotate: '-2deg' }],
     top: 116,
   },
+
+  leftLegHingeSetup: {
+    transform: [{ rotate: '4deg' }],
+  },
+  rightLegHingeSetup: {
+    transform: [{ rotate: '-4deg' }],
+  },
+  leftLegHingeStretch: {
+    transform: [{ rotate: '16deg' }],
+    top: 126,
+  },
+  rightLegHingeStretch: {
+    transform: [{ rotate: '-16deg' }],
+    top: 126,
+  },
+  leftLegHingeContraction: {
+    transform: [{ rotate: '6deg' }],
+    top: 118,
+  },
+  rightLegHingeContraction: {
+    transform: [{ rotate: '-6deg' }],
+    top: 118,
+  },
+
+  leftLegCurlSetup: {
+    transform: [{ rotate: '5deg' }],
+  },
+  rightLegCurlSetup: {
+    transform: [{ rotate: '-5deg' }],
+  },
+  leftLegCurlStretch: {
+    transform: [{ rotate: '5deg' }],
+  },
+  rightLegCurlStretch: {
+    transform: [{ rotate: '-5deg' }],
+  },
+  leftLegCurlContraction: {
+    transform: [{ rotate: '5deg' }],
+  },
+  rightLegCurlContraction: {
+    transform: [{ rotate: '-5deg' }],
+  },
+
   highlightSetup: {
     backgroundColor: '#fb923c',
   },

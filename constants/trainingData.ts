@@ -2,6 +2,11 @@ export type BodySide = 'front' | 'back';
 
 export type PostureStateKey = 'setup' | 'stretch' | 'contraction';
 
+export type VisualProfile =
+  | 'press'
+  | 'hinge'
+  | 'curl';
+
 export type PostureState = {
   label: string;
   shortCue: string;
@@ -15,6 +20,7 @@ export type ExerciseDefinition = {
   muscles: Record<BodySide, string[]>;
   defaultBodySide: BodySide;
   dashboardFocus: string;
+  visualProfile: VisualProfile;
   postureStates: Record<PostureStateKey, PostureState>;
   coaching: {
     early: string;
@@ -29,6 +35,7 @@ const exercises: ExerciseDefinition[] = [
     name: 'Incline Dumbbell Press',
     defaultBodySide: 'front',
     dashboardFocus: 'Upper chest tension and stable pressing mechanics.',
+    visualProfile: 'press',
     muscles: {
       front: ['upper chest', 'front delts', 'triceps'],
       back: ['rear delts', 'upper back'],
@@ -67,6 +74,7 @@ const exercises: ExerciseDefinition[] = [
     name: 'Romanian Deadlift',
     defaultBodySide: 'back',
     dashboardFocus: 'Hamstring loading, hip hinge control, and glute finish.',
+    visualProfile: 'hinge',
     muscles: {
       front: ['core', 'grip'],
       back: ['glutes', 'hamstrings', 'lower back'],
@@ -105,6 +113,7 @@ const exercises: ExerciseDefinition[] = [
     name: 'Dumbbell Curl',
     defaultBodySide: 'front',
     dashboardFocus: 'Elbow control, full biceps lengthening, and peak squeeze.',
+    visualProfile: 'curl',
     muscles: {
       front: ['biceps', 'forearms'],
       back: ['upper back'],
