@@ -126,6 +126,80 @@ const FOCUS_PULSE_PEAK = 1.07;
 
 const BASE_BLEND_MS = 240;
 
+/** Global muscle-readiness by phase — kept closer so silhouette carries most of the read. */
+const PHASE_GLOBAL_HIGHLIGHT: [number, number, number] = [0.82, 0.9, 1];
+/** Extra highlight emphasis at full contraction (clamped by the view). */
+const PHASE_CONTRACT_HIGHLIGHT: [number, number, number] = [1, 1, 1.05];
+/** Whole-figure scale: neutral setup → slight reach at stretch → dense peak at contraction. */
+const PHASE_FIGURE_SCALE: [number, number, number] = [1, 1.012, 1.024];
+/** Focus pulse depth: restrained setup, stronger intent in contraction. */
+const PHASE_PULSE_DEPTH: [number, number, number] = [0.99, 1, 1.028];
+
+/**
+ * At stretch, slightly favor regions that read as lengthened / loaded for each profile.
+ * Fades back to 1 by contraction so coaching + contraction boost define the squeeze.
+ */
+const PHASE_STRETCH_REGION_PEAK: Record<Profile, RegionWeights> = {
+  press: { chest: 1.08, back: 1, core: 1.04, arms: 1.12, legs: 1 },
+  hinge: { chest: 1, back: 1.1, core: 1.06, arms: 1.03, legs: 1.14 },
+  curl: { chest: 1, back: 1, core: 1.02, arms: 1.14, legs: 1 },
+};
+
+/** Multiplies `phaseFigureScale` — balanced setup → long narrow stretch → broad compressed contraction. */
+const PHASE_SILHOUETTE_SCALE_X: [number, number, number] = [1, 0.952, 1.058];
+const PHASE_SILHOUETTE_SCALE_Y: [number, number, number] = [1, 1.048, 0.938];
+/** Whole-figure vertical shift (px): composed setup → lifted stretch → grounded contraction. */
+const PHASE_SILHOUETTE_TRANSLATE_Y: [number, number, number] = [0, -5.5, 2.8];
+/** Extra horizontal arm spread (px); mirrored on left/right via sign. */
+const PHASE_LIMB_SPREAD: [number, number, number] = [0, 9, -5];
+/** Torso block only: neutral → elongated → shortened (reads with whole-figure scale). */
+const PHASE_TORSO_SCALE_X: [number, number, number] = [1, 0.93, 1.08];
+const PHASE_TORSO_SCALE_Y: [number, number, number] = [1, 1.08, 0.9];
+/** Head slides with posture: calm → long neck → tucked, compact power. */
+const PHASE_HEAD_TRANSLATE_Y: [number, number, number] = [0, -4, 2.5];
+/** Upper arms shift vertically vs torso: open spacing at stretch, packed at contraction. */
+const PHASE_UPPER_ARM_TRANSLATE_Y: [number, number, number] = [0, -5, 3.5];
+/** Leg row: reach at stretch, slight shorten at contraction. */
+const PHASE_LEG_ROW_TRANSLATE_Y: [number, number, number] = [0, -5, 1.2];
+const PHASE_LEG_ROW_SCALE_Y: [number, number, number] = [1, 1.055, 0.94];
+
+type PhaseDegTriple = [number, number, number];
+
+/** Layered on profile keyframes: upright setup → opened stretch → flexed / packed contraction. */
+const PHASE_TORSO_CHARACTER_DEG: Record<Profile, PhaseDegTriple> = {
+  press: [0.6, -2.8, -6.2],
+  hinge: [1.2, -4.5, -7.5],
+  curl: [0.4, -2.4, -5],
+};
+
+const PHASE_ARM_CHARACTER: Record<
+  Profile,
+  { ls: PhaseDegTriple; rs: PhaseDegTriple; le: PhaseDegTriple; re: PhaseDegTriple }
+> = {
+  press: {
+    ls: [-11, 2, 12],
+    rs: [11, -2, -12],
+    le: [9, -2, -16],
+    re: [-9, 2, 16],
+  },
+  hinge: {
+    ls: [-8, 3.5, 8],
+    rs: [8, -3.5, -8],
+    le: [6, -2, -11],
+    re: [-6, 2, 11],
+  },
+  curl: {
+    ls: [-9, 1.5, 8],
+    rs: [9, -1.5, -8],
+    le: [14, 1, -22],
+    re: [-14, -1, 22],
+  },
+};
+
+function degTriple(t: PhaseDegTriple): [string, string, string] {
+  return [`${t[0]}deg`, `${t[1]}deg`, `${t[2]}deg`];
+}
+
 export default function BodyVisual(props: Props) {
   const posture = resolvePosture(props);
   const profile = resolveProfile(props);
@@ -354,36 +428,163 @@ export default function BodyVisual(props: Props) {
     outputRange: layout.rightShift,
   });
 
+  const phaseSilhouetteScaleX = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_SILHOUETTE_SCALE_X,
+  });
+  const phaseSilhouetteScaleY = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_SILHOUETTE_SCALE_Y,
+  });
+  const phaseSilhouetteTranslateY = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_SILHOUETTE_TRANSLATE_Y,
+  });
+  const phaseLimbSpread = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_LIMB_SPREAD,
+  });
+  const phaseLegRowTranslateY = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_LEG_ROW_TRANSLATE_Y,
+  });
+  const phaseLegRowScaleY = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_LEG_ROW_SCALE_Y,
+  });
+  const phaseTorsoScaleX = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_TORSO_SCALE_X,
+  });
+  const phaseTorsoScaleY = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_TORSO_SCALE_Y,
+  });
+  const phaseHeadTranslateY = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_HEAD_TRANSLATE_Y,
+  });
+  const phaseUpperArmTranslateY = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_UPPER_ARM_TRANSLATE_Y,
+  });
+
+  const phaseTorsoCharacter = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: degTriple(PHASE_TORSO_CHARACTER_DEG[profile]),
+  });
+
+  const armChar = PHASE_ARM_CHARACTER[profile];
+  const leftShoulderCharacter = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: degTriple(armChar.ls),
+  });
+  const rightShoulderCharacter = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: degTriple(armChar.rs),
+  });
+  const leftElbowCharacter = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: degTriple(armChar.le),
+  });
+  const rightElbowCharacter = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: degTriple(armChar.re),
+  });
+
+  const leftArmShiftWithSpread = Animated.add(leftArmShift, Animated.multiply(phaseLimbSpread, -1));
+  const rightArmShiftWithSpread = Animated.add(rightArmShift, phaseLimbSpread);
+
   const intensity = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: [0.35, 0.65, 1],
+    outputRange: [0.32, 0.66, 1],
   });
 
   const armPressOpacity = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: [0.45, 0.68, 0.82],
+    outputRange: [0.42, 0.72, 0.86],
   });
 
-  const chestOpacityOut =
-    profile === "press" ? Animated.multiply(intensity, chestMult) : Animated.multiply(chestBaseAnim, chestMult);
+  const phaseGlobalHighlight = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_GLOBAL_HIGHLIGHT,
+  });
 
-  const backOpacityOut =
-    profile === "hinge" ? Animated.multiply(intensity, backMult) : Animated.multiply(backBaseAnim, backMult);
+  const phaseContractHighlight = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_CONTRACT_HIGHLIGHT,
+  });
 
-  const armOpacityOut =
+  const phaseFigureScale = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_FIGURE_SCALE,
+  });
+
+  const figureScaleX = Animated.multiply(phaseFigureScale, phaseSilhouetteScaleX);
+  const figureScaleY = Animated.multiply(phaseFigureScale, phaseSilhouetteScaleY);
+
+  const phasePulseDepth = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: PHASE_PULSE_DEPTH,
+  });
+
+  const stretchPeak = PHASE_STRETCH_REGION_PEAK[profile];
+
+  const stretchChest = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [1, stretchPeak.chest, 1],
+  });
+  const stretchBack = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [1, stretchPeak.back, 1],
+  });
+  const stretchCore = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [1, stretchPeak.core, 1],
+  });
+  const stretchArms = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [1, stretchPeak.arms, 1],
+  });
+  const stretchLegs = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [1, stretchPeak.legs, 1],
+  });
+
+  const withPhaseHighlights = (v: Animated.AnimatedInterpolation<number>) =>
+    Animated.multiply(Animated.multiply(v, phaseGlobalHighlight), phaseContractHighlight);
+
+  const chestOpacityOut = withPhaseHighlights(
+    profile === "press"
+      ? Animated.multiply(intensity, chestMult)
+      : Animated.multiply(chestBaseAnim, chestMult)
+  );
+  const chestOpacityWithStretch = Animated.multiply(chestOpacityOut, stretchChest);
+
+  const backOpacityOut = withPhaseHighlights(
+    Animated.multiply(profile === "hinge" ? intensity : backBaseAnim, backMult)
+  );
+  const backOpacityWithStretch = Animated.multiply(backOpacityOut, stretchBack);
+
+  const armOpacityBase =
     profile === "curl"
       ? Animated.multiply(intensity, armMult)
       : profile === "press"
         ? Animated.multiply(armPressOpacity, armMult)
         : Animated.multiply(armBaseAnim, armMult);
+  const armOpacityOut = withPhaseHighlights(armOpacityBase);
+  const armOpacityWithStretch = Animated.multiply(armOpacityOut, stretchArms);
 
-  const legOpacityOut =
-    profile === "hinge" ? Animated.multiply(intensity, legMult) : Animated.multiply(legBaseAnim, legMult);
+  const legOpacityOut = withPhaseHighlights(
+    Animated.multiply(profile === "hinge" ? intensity : legBaseAnim, legMult)
+  );
+  const legOpacityWithStretch = Animated.multiply(legOpacityOut, stretchLegs);
 
-  const coreOpacityOut = Animated.multiply(coreBaseAnim, coreMult);
+  const coreOpacityOut = withPhaseHighlights(Animated.multiply(coreBaseAnim, coreMult));
+  const coreOpacityWithStretch = Animated.multiply(coreOpacityOut, stretchCore);
 
   const pulseWrap = (region: keyof RegionWeights) =>
-    primaryFocusRegion === region ? pulseAnim : 1;
+    primaryFocusRegion === region ? Animated.multiply(pulseAnim, phasePulseDepth) : 1;
 
   return (
     <View style={styles.wrapper}>
@@ -392,11 +593,19 @@ export default function BodyVisual(props: Props) {
           style={[
             styles.figure,
             {
-              transform: [{ rotate: torsoRotate }],
+              transform: [
+                { translateY: phaseSilhouetteTranslateY },
+                { rotate: torsoRotate },
+                { rotate: phaseTorsoCharacter },
+                { scaleX: figureScaleX },
+                { scaleY: figureScaleY },
+              ],
             },
           ]}
         >
-          <Animated.View style={[styles.head, { opacity: headShell }]} />
+          <Animated.View style={{ transform: [{ translateY: phaseHeadTranslateY }] }}>
+            <Animated.View style={[styles.head, { opacity: headShell }]} />
+          </Animated.View>
 
           <View style={styles.upperBodyRow}>
             <Animated.View
@@ -406,8 +615,10 @@ export default function BodyVisual(props: Props) {
                 {
                   opacity: armShell,
                   transform: [
-                    { translateX: leftArmShift },
+                    { translateY: phaseUpperArmTranslateY },
+                    { translateX: leftArmShiftWithSpread },
                     { rotate: leftShoulderRotate },
+                    { rotate: leftShoulderCharacter },
                   ],
                 },
               ]}
@@ -417,14 +628,14 @@ export default function BodyVisual(props: Props) {
                   style={[
                     styles.armHighlight,
                     isBack ? styles.armHighlightRearLeft : null,
-                    { opacity: armOpacityOut },
+                    { opacity: armOpacityWithStretch },
                   ]}
                 />
               </Animated.View>
               <Animated.View
                 style={[
                   styles.lowerArm,
-                  { transform: [{ rotate: leftElbowRotate }] },
+                  { transform: [{ rotate: leftElbowRotate }, { rotate: leftElbowCharacter }] },
                 ]}
               />
             </Animated.View>
@@ -433,7 +644,10 @@ export default function BodyVisual(props: Props) {
               style={[
                 styles.torso,
                 isBack ? styles.torsoRear : styles.torsoFront,
-                { opacity: torsoShell },
+                {
+                  opacity: torsoShell,
+                  transform: [{ scaleX: phaseTorsoScaleX }, { scaleY: phaseTorsoScaleY }],
+                },
               ]}
             >
               {isBack ? (
@@ -445,21 +659,32 @@ export default function BodyVisual(props: Props) {
               ) : null}
               <Animated.View style={{ opacity: pulseWrap("chest") }}>
                 <View style={{ opacity: isBack ? 0.26 : 1 }}>
-                  <Animated.View
-                    style={[styles.chestHighlight, isBack && styles.chestHighlightRear, { opacity: chestOpacityOut }]}
-                  />
+                  {isBack ? (
+                    <Animated.View
+                      style={[styles.chestHighlight, styles.chestHighlightRear, { opacity: chestOpacityWithStretch }]}
+                    />
+                  ) : (
+                    <>
+                      <Animated.View
+                        style={[styles.chestPecFront, styles.chestPecFrontLeft, { opacity: chestOpacityWithStretch }]}
+                      />
+                      <Animated.View
+                        style={[styles.chestPecFront, styles.chestPecFrontRight, { opacity: chestOpacityWithStretch }]}
+                      />
+                    </>
+                  )}
                 </View>
               </Animated.View>
               <Animated.View style={{ opacity: pulseWrap("back") }}>
                 <View style={{ opacity: isBack ? 1 : 0.3 }}>
                   <Animated.View
-                    style={[styles.backHighlight, isBack && styles.backHighlightRear, { opacity: backOpacityOut }]}
+                    style={[styles.backHighlight, isBack && styles.backHighlightRear, { opacity: backOpacityWithStretch }]}
                   />
                 </View>
               </Animated.View>
               <Animated.View style={{ opacity: pulseWrap("core") }}>
                 <Animated.View
-                  style={[styles.coreHighlight, isBack && styles.coreHighlightRear, { opacity: coreOpacityOut }]}
+                  style={[styles.coreHighlight, isBack && styles.coreHighlightRear, { opacity: coreOpacityWithStretch }]}
                 />
               </Animated.View>
             </Animated.View>
@@ -471,8 +696,10 @@ export default function BodyVisual(props: Props) {
                 {
                   opacity: armShell,
                   transform: [
-                    { translateX: rightArmShift },
+                    { translateY: phaseUpperArmTranslateY },
+                    { translateX: rightArmShiftWithSpread },
                     { rotate: rightShoulderRotate },
+                    { rotate: rightShoulderCharacter },
                   ],
                 },
               ]}
@@ -482,31 +709,40 @@ export default function BodyVisual(props: Props) {
                   style={[
                     styles.armHighlight,
                     isBack ? styles.armHighlightRearRight : null,
-                    { opacity: armOpacityOut },
+                    { opacity: armOpacityWithStretch },
                   ]}
                 />
               </Animated.View>
               <Animated.View
                 style={[
                   styles.lowerArm,
-                  { transform: [{ rotate: rightElbowRotate }] },
+                  { transform: [{ rotate: rightElbowRotate }, { rotate: rightElbowCharacter }] },
                 ]}
               />
             </Animated.View>
           </View>
 
-          <View style={styles.legsRow}>
+          <Animated.View
+            style={{
+              transform: [
+                { translateY: phaseLegRowTranslateY },
+                { scaleY: phaseLegRowScaleY },
+              ],
+            }}
+          >
+            <View style={styles.legsRow}>
             <Animated.View style={[styles.leg, { opacity: legShell }]}>
               <Animated.View style={{ opacity: pulseWrap("legs") }}>
-                <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
+                <Animated.View style={[styles.legHighlight, { opacity: legOpacityWithStretch }]} />
               </Animated.View>
             </Animated.View>
             <Animated.View style={[styles.leg, { opacity: legShell }]}>
               <Animated.View style={{ opacity: pulseWrap("legs") }}>
-                <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
+                <Animated.View style={[styles.legHighlight, { opacity: legOpacityWithStretch }]} />
               </Animated.View>
             </Animated.View>
-          </View>
+            </View>
+          </Animated.View>
         </Animated.View>
       </View>
 
@@ -771,6 +1007,20 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     backgroundColor: "#FF7A18",
+  },
+  chestPecFront: {
+    position: "absolute",
+    top: 13,
+    width: 14,
+    height: 17,
+    borderRadius: 7,
+    backgroundColor: "#FF7A18",
+  },
+  chestPecFrontLeft: {
+    left: 7,
+  },
+  chestPecFrontRight: {
+    right: 7,
   },
   chestHighlightRear: {
     top: 22,
