@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 export type Posture = "setup" | "stretch" | "contraction";
 export type Profile = "press" | "hinge" | "curl";
+export type BodyView = "front" | "back";
 
 export type CoachingFocus =
   | "auto"
@@ -39,6 +40,9 @@ type Props = {
   exerciseType?: Profile;
   profile?: Profile;
   coaching?: Coaching | null;
+  /** Which anatomical side faces the camera (alias: `side`). */
+  view?: BodyView;
+  side?: BodyView;
 };
 
 type RegionWeights = {
@@ -114,15 +118,19 @@ const PROFILE_LAYOUT: Record<Profile, ProfileLayout> = {
   },
 };
 
-const COACH_TIMING_MS = 380;
+const COACH_TIMING_MS = 420;
 const COACH_EASING = Easing.out(Easing.cubic);
 const SECONDARY_RELEVANCE_MIN = 0.26;
+const FOCUS_PULSE_MS = 1680;
+const FOCUS_PULSE_PEAK = 1.07;
 
 const BASE_BLEND_MS = 240;
 
 export default function BodyVisual(props: Props) {
   const posture = resolvePosture(props);
   const profile = resolveProfile(props);
+  const bodyView = resolveBodyView(props);
+  const isBack = bodyView === "back";
   const layout = PROFILE_LAYOUT[profile];
   const coaching = useMemo(() => resolveCoaching(props.coaching), [props.coaching]);
 
@@ -147,6 +155,43 @@ export default function BodyVisual(props: Props) {
   const armShell = useRef(new Animated.Value(shellTargets.arms)).current;
   const legShell = useRef(new Animated.Value(shellTargets.legs)).current;
   const headShell = useRef(new Animated.Value(headShellTarget)).current;
+
+  const primaryFocusRegion = useMemo(() => primaryRegionForFocus(coaching.focus), [coaching.focus]);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!primaryFocusRegion) {
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }).start();
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: FOCUS_PULSE_PEAK,
+          duration: FOCUS_PULSE_MS,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: FOCUS_PULSE_MS,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    pulseAnim.setValue(1);
+    loop.start();
+    return () => {
+      loop.stop();
+      pulseAnim.setValue(1);
+    };
+  }, [primaryFocusRegion, pulseAnim]);
 
   useEffect(() => {
     Animated.parallel([
@@ -337,6 +382,9 @@ export default function BodyVisual(props: Props) {
 
   const coreOpacityOut = Animated.multiply(coreBaseAnim, coreMult);
 
+  const pulseWrap = (region: keyof RegionWeights) =>
+    primaryFocusRegion === region ? pulseAnim : 1;
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.figureBox}>
@@ -364,7 +412,15 @@ export default function BodyVisual(props: Props) {
                 },
               ]}
             >
-              <Animated.View style={[styles.armHighlight, { opacity: armOpacityOut }]} />
+              <Animated.View style={{ opacity: pulseWrap("arms") }}>
+                <Animated.View
+                  style={[
+                    styles.armHighlight,
+                    isBack ? styles.armHighlightRearLeft : null,
+                    { opacity: armOpacityOut },
+                  ]}
+                />
+              </Animated.View>
               <Animated.View
                 style={[
                   styles.lowerArm,
@@ -373,10 +429,39 @@ export default function BodyVisual(props: Props) {
               />
             </Animated.View>
 
-            <Animated.View style={[styles.torso, { opacity: torsoShell }]}>
-              <Animated.View style={[styles.chestHighlight, { opacity: chestOpacityOut }]} />
-              <Animated.View style={[styles.backHighlight, { opacity: backOpacityOut }]} />
-              <Animated.View style={[styles.coreHighlight, { opacity: coreOpacityOut }]} />
+            <Animated.View
+              style={[
+                styles.torso,
+                isBack ? styles.torsoRear : styles.torsoFront,
+                { opacity: torsoShell },
+              ]}
+            >
+              {isBack ? (
+                <>
+                  <View style={styles.rearLatLeft} />
+                  <View style={styles.rearLatRight} />
+                  <View style={styles.rearSpine} />
+                </>
+              ) : null}
+              <Animated.View style={{ opacity: pulseWrap("chest") }}>
+                <View style={{ opacity: isBack ? 0.26 : 1 }}>
+                  <Animated.View
+                    style={[styles.chestHighlight, isBack && styles.chestHighlightRear, { opacity: chestOpacityOut }]}
+                  />
+                </View>
+              </Animated.View>
+              <Animated.View style={{ opacity: pulseWrap("back") }}>
+                <View style={{ opacity: isBack ? 1 : 0.3 }}>
+                  <Animated.View
+                    style={[styles.backHighlight, isBack && styles.backHighlightRear, { opacity: backOpacityOut }]}
+                  />
+                </View>
+              </Animated.View>
+              <Animated.View style={{ opacity: pulseWrap("core") }}>
+                <Animated.View
+                  style={[styles.coreHighlight, isBack && styles.coreHighlightRear, { opacity: coreOpacityOut }]}
+                />
+              </Animated.View>
             </Animated.View>
 
             <Animated.View
@@ -392,7 +477,15 @@ export default function BodyVisual(props: Props) {
                 },
               ]}
             >
-              <Animated.View style={[styles.armHighlight, { opacity: armOpacityOut }]} />
+              <Animated.View style={{ opacity: pulseWrap("arms") }}>
+                <Animated.View
+                  style={[
+                    styles.armHighlight,
+                    isBack ? styles.armHighlightRearRight : null,
+                    { opacity: armOpacityOut },
+                  ]}
+                />
+              </Animated.View>
               <Animated.View
                 style={[
                   styles.lowerArm,
@@ -404,17 +497,22 @@ export default function BodyVisual(props: Props) {
 
           <View style={styles.legsRow}>
             <Animated.View style={[styles.leg, { opacity: legShell }]}>
-              <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
+              <Animated.View style={{ opacity: pulseWrap("legs") }}>
+                <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
+              </Animated.View>
             </Animated.View>
             <Animated.View style={[styles.leg, { opacity: legShell }]}>
-              <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
+              <Animated.View style={{ opacity: pulseWrap("legs") }}>
+                <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
+              </Animated.View>
             </Animated.View>
           </View>
         </Animated.View>
       </View>
 
       <Text style={styles.debugText}>
-        profile: {profile} | posture: {posture} | coach: {coaching.focus} ({coaching.intensity.toFixed(2)})
+        profile: {profile} | view: {bodyView} | posture: {posture} | coach: {coaching.focus} (
+        {coaching.intensity.toFixed(2)})
       </Text>
     </View>
   );
@@ -452,13 +550,13 @@ function highlightMultiplier(tier: RegionTier, intensity: number): number {
     case "neutral":
       return 1;
     case "full":
-      return 1 + 0.2 * i;
+      return 1 + 0.22 * i;
     case "primary":
-      return 1 + 0.52 * i;
+      return 1 + 0.78 * i;
     case "secondary":
-      return 1 + 0.16 * i;
+      return 1 + 0.1 * i;
     case "inactive":
-      return Math.max(0.38, 1 - 0.36 * i);
+      return Math.max(0.22, 1 - 0.58 * i);
     default:
       return 1;
   }
@@ -473,12 +571,17 @@ function shellOpacityForTier(tier: RegionTier, intensity: number): number {
     case "primary":
       return 1;
     case "secondary":
-      return 0.9 + 0.05 * (1 - i);
+      return 0.82 + 0.07 * (1 - i);
     case "inactive":
-      return Math.max(0.64, 0.86 - 0.24 * i);
+      return Math.max(0.48, 0.72 - 0.3 * i);
     default:
       return 1;
   }
+}
+
+function primaryRegionForFocus(focus: CoachingFocus): keyof RegionWeights | null {
+  if (focus === "auto" || focus === "full") return null;
+  return focus as keyof RegionWeights;
 }
 
 function computeCoachingVisualTargets(
@@ -563,6 +666,14 @@ function resolveProfile(props: Props): Profile {
   return "press";
 }
 
+function resolveBodyView(props: Props): BodyView {
+  const raw = props.view ?? props.side;
+  if (raw === "front" || raw === "back") {
+    return raw;
+  }
+  return "front";
+}
+
 function getPostureValue(posture: Posture) {
   switch (posture) {
     case "stretch":
@@ -609,36 +720,91 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   torso: {
-    width: 58,
     height: 96,
-    borderRadius: 18,
-    backgroundColor: "#8F8F94",
     alignItems: "center",
     position: "relative",
   },
+  torsoFront: {
+    width: 58,
+    borderRadius: 18,
+    backgroundColor: "#8F8F94",
+  },
+  torsoRear: {
+    width: 60,
+    borderRadius: 16,
+    backgroundColor: "#82828A",
+  },
+  rearLatLeft: {
+    position: "absolute",
+    top: 18,
+    left: 1,
+    width: 15,
+    height: 44,
+    borderRadius: 7,
+    backgroundColor: "#6F6F76",
+    transform: [{ rotate: "-7deg" }],
+  },
+  rearLatRight: {
+    position: "absolute",
+    top: 18,
+    right: 1,
+    width: 15,
+    height: 44,
+    borderRadius: 7,
+    backgroundColor: "#6F6F76",
+    transform: [{ rotate: "7deg" }],
+  },
+  rearSpine: {
+    position: "absolute",
+    top: 26,
+    left: "50%",
+    marginLeft: -2,
+    width: 4,
+    height: 50,
+    borderRadius: 2,
+    backgroundColor: "#5E5E65",
+  },
   chestHighlight: {
     position: "absolute",
-    top: 16,
-    width: 30,
-    height: 16,
-    borderRadius: 8,
+    top: 14,
+    width: 32,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: "#FF7A18",
+  },
+  chestHighlightRear: {
+    top: 22,
+    width: 18,
+    height: 10,
+    borderRadius: 5,
   },
   backHighlight: {
     position: "absolute",
-    top: 40,
-    width: 24,
-    height: 14,
-    borderRadius: 7,
+    top: 42,
+    width: 22,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: "#FF7A18",
+  },
+  backHighlightRear: {
+    top: 10,
+    width: 40,
+    height: 24,
+    borderRadius: 12,
   },
   coreHighlight: {
     position: "absolute",
-    top: 58,
+    top: 56,
     width: 18,
     height: 16,
     borderRadius: 8,
     backgroundColor: "#A39CA3",
+  },
+  coreHighlightRear: {
+    top: 62,
+    width: 20,
+    height: 14,
+    borderRadius: 7,
   },
   upperArm: {
     width: 16,
@@ -664,6 +830,20 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 8,
     backgroundColor: "#FF7A18",
+  },
+  armHighlightRearLeft: {
+    left: 0,
+    right: 5,
+    top: 14,
+    height: 20,
+    borderRadius: 7,
+  },
+  armHighlightRearRight: {
+    left: 5,
+    right: 0,
+    top: 14,
+    height: 20,
+    borderRadius: 7,
   },
   lowerArm: {
     position: "absolute",
