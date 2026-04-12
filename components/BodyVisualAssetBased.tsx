@@ -136,24 +136,15 @@ function SlotPlaceholder({ kind }: { kind: PlaceholderKind }) {
   );
 }
 
-function AssetOrPlaceholder({
-  source,
-  placeholderKind,
-}: {
-  source?: ImageSourcePropType;
-  placeholderKind: PlaceholderKind;
-}) {
-  if (source) {
-    return (
-      <Image
-        source={source}
-        style={StyleSheet.absoluteFill}
-        contentFit="contain"
-        transition={120}
-      />
-    );
-  }
-  return <SlotPlaceholder kind={placeholderKind} />;
+function BaseSlotImage({ source }: { source: ImageSourcePropType }) {
+  return (
+    <Image
+      source={source}
+      style={StyleSheet.absoluteFill}
+      contentFit="contain"
+      transition={120}
+    />
+  );
 }
 
 /**
@@ -185,6 +176,9 @@ export default function BodyVisualAssetBased(props: BodyVisualAssetBasedProps) {
   const hlSource =
     view === "back" ? props.assets?.backHighlight : props.assets?.frontHighlight;
 
+  /** Custom base art replaces the vector silhouette; do not stack highlight placeholders on top. */
+  const hasCustomBaseAsset = Boolean(baseSource);
+
   return (
     <View style={styles.wrapper} testID={props.testID}>
       <View style={styles.figureBox}>
@@ -205,11 +199,24 @@ export default function BodyVisualAssetBased(props: BodyVisualAssetBasedProps) {
             accessibilityLabel={`Body ${view}, ${posture}, profile ${profile}`}
           >
             <View style={StyleSheet.absoluteFill}>
-              <AssetOrPlaceholder source={baseSource} placeholderKind={baseKind} />
+              {baseSource ? (
+                <BaseSlotImage source={baseSource} />
+              ) : (
+                <SlotPlaceholder kind={baseKind} />
+              )}
             </View>
-            <View style={[StyleSheet.absoluteFill, { opacity: highlightOpacity }]} pointerEvents="none">
-              <AssetOrPlaceholder source={hlSource} placeholderKind={hlKind} />
-            </View>
+            {hlSource || !hasCustomBaseAsset ? (
+              <View
+                style={[StyleSheet.absoluteFill, { opacity: highlightOpacity }]}
+                pointerEvents="none"
+              >
+                {hlSource ? (
+                  <BaseSlotImage source={hlSource} />
+                ) : (
+                  <SlotPlaceholder kind={hlKind} />
+                )}
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
