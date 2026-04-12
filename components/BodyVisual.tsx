@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import Svg, { Ellipse, G, Path } from "react-native-svg";
 
 export type Posture = "setup" | "stretch" | "contraction";
 export type Profile = "press" | "hinge" | "curl";
@@ -43,6 +44,8 @@ type Props = {
   /** Which anatomical side faces the camera (alias: `side`). */
   view?: BodyView;
   side?: BodyView;
+  /** Passed from exercise screen; reserved for future muscle→focus mapping. */
+  highlightedMuscles?: readonly string[];
 };
 
 type RegionWeights = {
@@ -200,7 +203,108 @@ function degTriple(t: PhaseDegTriple): [string, string, string] {
   return [`${t[0]}deg`, `${t[1]}deg`, `${t[2]}deg`];
 }
 
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+/** Shell + highlight palette — cool neutrals, warm accent (product-consistent). */
+const C = {
+  ink: "#4A4A52",
+  shellDeep: "#5C5C66",
+  shellMid: "#6E6E78",
+  shell: "#82828C",
+  shellLight: "#94949E",
+  limb: "#8A8A94",
+  limbSoft: "#9A9AA4",
+  joint: "#787882",
+  accent: "#FF7A18",
+  accentSoft: "#E8B89A",
+  coreTint: "#9A939C",
+  spine: "#4E4E56",
+  rearPlane: "#76767E",
+};
+
+/** viewBox 0 0 200 220 — neck base → delts → chest/ribcage → waist → pelvis (arms meet lateral shelf). */
+const PATH_FRONT_TORSO =
+  "M100 27" +
+  " C93 27 86 30 80 34" +
+  " L70 41 C56 52 45 68 42 88" +
+  " C39 108 40 128 44 146" +
+  " C48 160 60 170 76 175" +
+  " L88 178 L100 180 L112 178 L124 175" +
+  " C140 170 152 160 156 146" +
+  " C160 128 161 108 158 88" +
+  " C155 68 144 52 130 41" +
+  " L120 34 C114 30 107 27 100 27 Z";
+
+const PATH_BACK_TORSO =
+  "M100 27" +
+  " C91 27 82 30 74 36" +
+  " L63 45 C47 60 38 82 36 106" +
+  " C34 128 38 150 50 164" +
+  " C60 173 74 178 88 179" +
+  " L100 181 L112 179 C126 178 140 173 150 164" +
+  " C162 150 166 128 164 106" +
+  " C162 82 153 60 137 45" +
+  " L126 36 C118 30 109 27 100 27 Z";
+
+/** viewBox 0 0 200 200 — continuous hip shelf into thighs; crotch nested under torso. */
+const PATH_FRONT_LEGS =
+  "M77 2 C69 7 64 20 63 40" +
+  " C61 78 64 118 67 152 L64 186 L79 192 L90 150" +
+  " C92 106 96 66 99 38 L100 22 L101 38" +
+  " C104 66 108 106 110 150 L121 192 L136 186 L133 152" +
+  " C136 118 139 78 137 40" +
+  " C136 20 131 7 123 2" +
+  " L111 0 L100 3 L89 0 Z";
+
+const PATH_BACK_LEGS =
+  "M75 1 C67 6 62 18 61 36" +
+  " C59 74 62 114 65 148 L62 184 L77 190 L88 148" +
+  " C90 102 94 62 97 34 L100 20 L103 34" +
+  " C106 62 110 102 112 148 L123 190 L138 184 L135 148" +
+  " C138 114 141 74 139 36" +
+  " C138 18 133 6 125 1" +
+  " L113 0 L100 2 L87 0 Z";
+
+/** Spinal shadow (back only). */
+const PATH_BACK_SPINE =
+  "M100 44 C98 44 96 48 95 54 L94 122 C94 132 96 142 100 147 C104 142 106 132 106 122 L105 54 C104 48 102 44 100 44 Z";
+
+/** Coaching highlight regions (same viewBoxes as torso / legs). */
+const PATH_HL_PEC_L =
+  "M100 180 L87 177 L76 160 C71 140 73 114 79 94 C85 80 92 74 100 76 L100 180 Z";
+const PATH_HL_PEC_R =
+  "M100 180 L113 177 L124 160 C129 140 127 114 121 94 C115 80 108 74 100 76 L100 180 Z";
+const PATH_HL_STERNAL = "M100 114 L94 114 L90 144 L100 158 L110 144 L106 114 Z";
+const PATH_HL_BACK_UPPER =
+  "M100 50 L76 56 L65 78 L69 100 L88 110 L100 114 L112 110 L131 100 L135 78 L124 56 Z";
+const PATH_HL_BACK_LOWER =
+  "M100 114 L82 122 L77 144 L86 166 L100 173 L114 166 L123 144 L118 122 Z";
+const PATH_HL_CORE_F =
+  "M100 174 L88 171 L84 152 L90 132 L100 128 L110 132 L116 152 L112 171 Z";
+const PATH_HL_CORE_B =
+  "M100 176 L88 174 L84 154 L92 134 L100 130 L108 134 L116 154 L112 174 Z";
+
+const PATH_HL_QUAD_L = "M86 24 L77 2 L70 32 L72 96 L76 138 L90 146 L94 96 Z";
+const PATH_HL_QUAD_R = "M114 24 L123 2 L130 32 L128 96 L124 138 L110 146 L106 96 Z";
+
+/** Upper arm (pivot top center ~20,5) viewBox 0 0 40 78 — delt cap, compact elbow. */
+const PATH_ARM_UPPER_F =
+  "M20 5 C9 9 2 26 5 46 C7 60 12 71 20 75 C28 71 33 60 35 46 C38 26 31 9 20 5 Z";
+const PATH_ARM_UPPER_B =
+  "M20 5 C7 11 1 30 4 48 C6 62 11 72 20 76 C29 72 34 62 36 48 C39 30 33 11 20 5 Z";
+
+/** Forearm viewBox 0 0 36 96, pivot top 18,5 */
+const PATH_FOREARM_F =
+  "M18 5 C9 23 7 52 10 77 C11 86 14 91 18 93 C22 91 25 86 26 77 C29 52 27 23 18 5 Z";
+const PATH_FOREARM_B =
+  "M18 5 C8 25 6 54 9 79 C10 88 13 93 18 95 C23 93 26 88 27 79 C30 54 28 25 18 5 Z";
+
+/** Arm highlight strips (local arm coords). */
+const PATH_HL_ARM_UPPER = "M20 19 C14 29 12 48 14 59 L26 59 C28 48 26 29 20 19 Z";
+const PATH_HL_FOREARM = "M18 21 C12 39 11 58 13 73 L23 73 C25 58 24 39 18 21 Z";
+
 export default function BodyVisual(props: Props) {
+  void props.highlightedMuscles;
   const posture = resolvePosture(props);
   const profile = resolveProfile(props);
   const bodyView = resolveBodyView(props);
@@ -586,6 +690,11 @@ export default function BodyVisual(props: Props) {
   const pulseWrap = (region: keyof RegionWeights) =>
     primaryFocusRegion === region ? Animated.multiply(pulseAnim, phasePulseDepth) : 1;
 
+  const torsoFill = isBack ? C.rearPlane : C.limb;
+  const legFill = isBack ? C.shellDeep : C.shellMid;
+  const armFill = isBack ? C.rearPlane : C.limb;
+  const foreFill = isBack ? C.shellMid : C.shell;
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.figureBox}>
@@ -604,14 +713,22 @@ export default function BodyVisual(props: Props) {
           ]}
         >
           <Animated.View style={{ transform: [{ translateY: phaseHeadTranslateY }] }}>
-            <Animated.View style={[styles.head, { opacity: headShell }]} />
+            <Animated.View style={{ opacity: headShell }}>
+              <Svg width={44} height={54} viewBox="0 0 80 92" pointerEvents="none">
+                <Ellipse cx={40} cy={25} rx={18.5} ry={22.5} fill={C.limbSoft} />
+                <Path
+                  d="M27 43 Q40 49 53 43 Q55 50 54 58 L52 74 Q40 82 28 74 L26 58 Q25 50 27 43 Z"
+                  fill={C.limb}
+                />
+              </Svg>
+            </Animated.View>
           </Animated.View>
 
           <View style={styles.upperBodyRow}>
             <Animated.View
               style={[
-                styles.upperArm,
-                styles.leftUpperArm,
+                styles.armColumn,
+                styles.armColumnLeft,
                 {
                   opacity: armShell,
                   transform: [
@@ -623,76 +740,102 @@ export default function BodyVisual(props: Props) {
                 },
               ]}
             >
-              <Animated.View style={{ opacity: pulseWrap("arms") }}>
-                <Animated.View
-                  style={[
-                    styles.armHighlight,
-                    isBack ? styles.armHighlightRearLeft : null,
-                    { opacity: armOpacityWithStretch },
-                  ]}
-                />
-              </Animated.View>
-              <Animated.View
-                style={[
-                  styles.lowerArm,
-                  { transform: [{ rotate: leftElbowRotate }, { rotate: leftElbowCharacter }] },
-                ]}
+              <SvgArm
+                side="left"
+                isBack={isBack}
+                armFill={armFill}
+                foreFill={foreFill}
+                elbowRotate={leftElbowRotate}
+                elbowCharacter={leftElbowCharacter}
+                armOpacityWithStretch={armOpacityWithStretch}
+                pulseArms={pulseWrap("arms")}
               />
             </Animated.View>
 
             <Animated.View
               style={[
                 styles.torso,
-                isBack ? styles.torsoRear : styles.torsoFront,
                 {
                   opacity: torsoShell,
                   transform: [{ scaleX: phaseTorsoScaleX }, { scaleY: phaseTorsoScaleY }],
                 },
               ]}
             >
-              {isBack ? (
-                <>
-                  <View style={styles.rearLatLeft} />
-                  <View style={styles.rearLatRight} />
-                  <View style={styles.rearSpine} />
-                </>
-              ) : null}
-              <Animated.View style={{ opacity: pulseWrap("chest") }}>
-                <View style={{ opacity: isBack ? 0.26 : 1 }}>
-                  {isBack ? (
-                    <Animated.View
-                      style={[styles.chestHighlight, styles.chestHighlightRear, { opacity: chestOpacityWithStretch }]}
-                    />
-                  ) : (
-                    <>
-                      <Animated.View
-                        style={[styles.chestPecFront, styles.chestPecFrontLeft, { opacity: chestOpacityWithStretch }]}
-                      />
-                      <Animated.View
-                        style={[styles.chestPecFront, styles.chestPecFrontRight, { opacity: chestOpacityWithStretch }]}
-                      />
-                    </>
-                  )}
-                </View>
-              </Animated.View>
-              <Animated.View style={{ opacity: pulseWrap("back") }}>
-                <View style={{ opacity: isBack ? 1 : 0.3 }}>
-                  <Animated.View
-                    style={[styles.backHighlight, isBack && styles.backHighlightRear, { opacity: backOpacityWithStretch }]}
-                  />
-                </View>
-              </Animated.View>
-              <Animated.View style={{ opacity: pulseWrap("core") }}>
-                <Animated.View
-                  style={[styles.coreHighlight, isBack && styles.coreHighlightRear, { opacity: coreOpacityWithStretch }]}
+              <Svg width={108} height={148} viewBox="0 0 200 220" pointerEvents="none">
+                <Path
+                  d={isBack ? PATH_BACK_TORSO : PATH_FRONT_TORSO}
+                  fill={torsoFill}
+                  stroke={C.ink}
+                  strokeOpacity={0.12}
+                  strokeWidth={0.8}
                 />
-              </Animated.View>
+                {isBack ? (
+                  <Path d={PATH_BACK_SPINE} fill={C.spine} opacity={0.55} />
+                ) : null}
+              </Svg>
+
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Svg width={108} height={148} viewBox="0 0 200 220" style={StyleSheet.absoluteFill}>
+                  <Animated.View style={{ opacity: pulseWrap("chest") }}>
+                    <View style={{ opacity: isBack ? 0.2 : 1 }}>
+                      {!isBack ? (
+                        <>
+                          <AnimatedPath
+                            d={PATH_HL_PEC_L}
+                            fill={C.accent}
+                            opacity={chestOpacityWithStretch}
+                          />
+                          <AnimatedPath
+                            d={PATH_HL_PEC_R}
+                            fill={C.accent}
+                            opacity={chestOpacityWithStretch}
+                          />
+                          <AnimatedPath
+                            d={PATH_HL_STERNAL}
+                            fill={C.accentSoft}
+                            opacity={chestOpacityWithStretch}
+                          />
+                        </>
+                      ) : (
+                        <AnimatedPath
+                          d="M100 98 L88 102 L84 116 L100 120 L116 116 L112 102 Z"
+                          fill={C.accent}
+                          opacity={chestOpacityWithStretch}
+                        />
+                      )}
+                    </View>
+                  </Animated.View>
+
+                  <Animated.View style={{ opacity: pulseWrap("back") }}>
+                    <View style={{ opacity: isBack ? 1 : 0.28 }}>
+                      <AnimatedPath
+                        d={isBack ? PATH_HL_BACK_UPPER : PATH_HL_BACK_UPPER}
+                        fill={C.accent}
+                        opacity={backOpacityWithStretch}
+                      />
+                      <AnimatedPath
+                        d={isBack ? PATH_HL_BACK_LOWER : PATH_HL_BACK_LOWER}
+                        fill={C.accent}
+                        opacity={backOpacityWithStretch}
+                      />
+                    </View>
+                  </Animated.View>
+
+                  <Animated.View style={{ opacity: pulseWrap("core") }}>
+                    <AnimatedPath
+                      d={isBack ? PATH_HL_CORE_B : PATH_HL_CORE_F}
+                      fill={C.coreTint}
+                      opacity={coreOpacityWithStretch}
+                    />
+                  </Animated.View>
+                </Svg>
+              </View>
             </Animated.View>
 
             <Animated.View
               style={[
-                styles.upperArm,
-                styles.rightUpperArm,
+                styles.armColumn,
+                styles.armColumnRight,
                 {
                   opacity: armShell,
                   transform: [
@@ -704,44 +847,42 @@ export default function BodyVisual(props: Props) {
                 },
               ]}
             >
-              <Animated.View style={{ opacity: pulseWrap("arms") }}>
-                <Animated.View
-                  style={[
-                    styles.armHighlight,
-                    isBack ? styles.armHighlightRearRight : null,
-                    { opacity: armOpacityWithStretch },
-                  ]}
-                />
-              </Animated.View>
-              <Animated.View
-                style={[
-                  styles.lowerArm,
-                  { transform: [{ rotate: rightElbowRotate }, { rotate: rightElbowCharacter }] },
-                ]}
+              <SvgArm
+                side="right"
+                isBack={isBack}
+                armFill={armFill}
+                foreFill={foreFill}
+                elbowRotate={rightElbowRotate}
+                elbowCharacter={rightElbowCharacter}
+                armOpacityWithStretch={armOpacityWithStretch}
+                pulseArms={pulseWrap("arms")}
               />
             </Animated.View>
           </View>
 
           <Animated.View
             style={{
-              transform: [
-                { translateY: phaseLegRowTranslateY },
-                { scaleY: phaseLegRowScaleY },
-              ],
+              transform: [{ translateY: phaseLegRowTranslateY }, { scaleY: phaseLegRowScaleY }],
             }}
           >
-            <View style={styles.legsRow}>
-            <Animated.View style={[styles.leg, { opacity: legShell }]}>
-              <Animated.View style={{ opacity: pulseWrap("legs") }}>
-                <Animated.View style={[styles.legHighlight, { opacity: legOpacityWithStretch }]} />
-              </Animated.View>
+            <Animated.View style={[styles.legsRow, { opacity: legShell }]}>
+              <LegSvgColumn
+                side="left"
+                isBack={isBack}
+                legFill={legFill}
+                quadPath={PATH_HL_QUAD_L}
+                legOpacityWithStretch={legOpacityWithStretch}
+                pulseLegs={pulseWrap("legs")}
+              />
+              <LegSvgColumn
+                side="right"
+                isBack={isBack}
+                legFill={legFill}
+                quadPath={PATH_HL_QUAD_R}
+                legOpacityWithStretch={legOpacityWithStretch}
+                pulseLegs={pulseWrap("legs")}
+              />
             </Animated.View>
-            <Animated.View style={[styles.leg, { opacity: legShell }]}>
-              <Animated.View style={{ opacity: pulseWrap("legs") }}>
-                <Animated.View style={[styles.legHighlight, { opacity: legOpacityWithStretch }]} />
-              </Animated.View>
-            </Animated.View>
-            </View>
           </Animated.View>
         </Animated.View>
       </View>
@@ -750,6 +891,118 @@ export default function BodyVisual(props: Props) {
         profile: {profile} | view: {bodyView} | posture: {posture} | coach: {coaching.focus} (
         {coaching.intensity.toFixed(2)})
       </Text>
+    </View>
+  );
+}
+
+type SvgArmProps = {
+  side: "left" | "right";
+  isBack: boolean;
+  armFill: string;
+  foreFill: string;
+  elbowRotate: Animated.AnimatedInterpolation<string>;
+  elbowCharacter: Animated.AnimatedInterpolation<string>;
+  armOpacityWithStretch: Animated.AnimatedInterpolation<number>;
+  pulseArms: Animated.AnimatedNode | number;
+};
+
+function SvgArm({
+  side,
+  isBack,
+  armFill,
+  foreFill,
+  elbowRotate,
+  elbowCharacter,
+  armOpacityWithStretch,
+  pulseArms,
+}: SvgArmProps) {
+  const mirror = side === "right" ? -1 : 1;
+  const upperPath = isBack ? PATH_ARM_UPPER_B : PATH_ARM_UPPER_F;
+  const forePath = isBack ? PATH_FOREARM_B : PATH_FOREARM_F;
+
+  return (
+    <View style={styles.armSvgWrap}>
+      <Svg width={40} height={78} viewBox="0 0 40 78" pointerEvents="none">
+        <GMirror mirror={mirror} width={40}>
+          <Path d={upperPath} fill={armFill} stroke={C.ink} strokeOpacity={0.1} strokeWidth={0.6} />
+        </GMirror>
+      </Svg>
+      <Animated.View
+        style={[
+          styles.forearmWrap,
+          {
+            transform: [{ rotate: elbowRotate }, { rotate: elbowCharacter }],
+          },
+        ]}
+      >
+        <Svg width={36} height={96} viewBox="0 0 36 96" pointerEvents="none">
+          <GMirror mirror={mirror} width={36}>
+            <Path d={forePath} fill={foreFill} stroke={C.ink} strokeOpacity={0.1} strokeWidth={0.6} />
+          </GMirror>
+        </Svg>
+        <Animated.View style={[styles.armHlOverlay, { opacity: pulseArms }]}>
+          <Svg width={36} height={96} viewBox="0 0 36 96" style={StyleSheet.absoluteFill} pointerEvents="none">
+            <GMirror mirror={mirror} width={36}>
+              <AnimatedPath d={PATH_HL_FOREARM} fill={C.accent} opacity={armOpacityWithStretch} />
+            </GMirror>
+          </Svg>
+        </Animated.View>
+      </Animated.View>
+      <Animated.View style={[styles.armHlOverlayUpper, { opacity: pulseArms }]}>
+        <Svg width={40} height={78} viewBox="0 0 40 78" pointerEvents="none">
+          <GMirror mirror={mirror} width={40}>
+            <AnimatedPath d={PATH_HL_ARM_UPPER} fill={C.accent} opacity={armOpacityWithStretch} />
+          </GMirror>
+        </Svg>
+      </Animated.View>
+    </View>
+  );
+}
+
+function GMirror({
+  mirror,
+  width,
+  children,
+}: {
+  mirror: number;
+  width: number;
+  children: React.ReactNode;
+}) {
+  if (mirror === 1) {
+    return <>{children}</>;
+  }
+  return <G transform={`translate(${width},0) scale(-1,1)`}>{children}</G>;
+}
+
+type LegSvgColumnProps = {
+  side: "left" | "right";
+  isBack: boolean;
+  legFill: string;
+  quadPath: string;
+  legOpacityWithStretch: Animated.AnimatedInterpolation<number>;
+  pulseLegs: Animated.AnimatedNode | number;
+};
+
+function LegSvgColumn({
+  side,
+  isBack,
+  legFill,
+  quadPath,
+  legOpacityWithStretch,
+  pulseLegs,
+}: LegSvgColumnProps) {
+  const d = isBack ? PATH_BACK_LEGS : PATH_FRONT_LEGS;
+  const slice = side === "left" ? "0 0 100 200" : "100 0 100 200";
+  return (
+    <View style={styles.legColumn}>
+      <Svg width={56} height={168} viewBox={slice} pointerEvents="none">
+        <Path d={d} fill={legFill} stroke={C.ink} strokeOpacity={0.1} strokeWidth={0.7} />
+      </Svg>
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: pulseLegs }]} pointerEvents="none">
+        <Svg width={56} height={168} viewBox={slice} style={StyleSheet.absoluteFill}>
+          <AnimatedPath d={quadPath} fill={C.accent} opacity={legOpacityWithStretch} />
+        </Svg>
+      </Animated.View>
     </View>
   );
 }
@@ -934,8 +1187,8 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   figureBox: {
-    width: 240,
-    height: 300,
+    width: 278,
+    height: 348,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -943,189 +1196,70 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-start",
   },
-  head: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#A1A1AA",
-    marginBottom: 8,
-  },
   upperBodyRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "center",
+    marginTop: -10,
   },
-  torso: {
-    height: 96,
+  armColumn: {
+    width: 36,
     alignItems: "center",
     position: "relative",
+    marginTop: -2,
   },
-  torsoFront: {
-    width: 58,
-    borderRadius: 18,
-    backgroundColor: "#8F8F94",
+  armColumnLeft: {
+    marginRight: -10,
+    transformOrigin: "top center" as never,
   },
-  torsoRear: {
-    width: 60,
-    borderRadius: 16,
-    backgroundColor: "#82828A",
+  armColumnRight: {
+    marginLeft: -10,
+    transformOrigin: "top center" as never,
   },
-  rearLatLeft: {
-    position: "absolute",
-    top: 18,
-    left: 1,
-    width: 15,
-    height: 44,
-    borderRadius: 7,
-    backgroundColor: "#6F6F76",
-    transform: [{ rotate: "-7deg" }],
-  },
-  rearLatRight: {
-    position: "absolute",
-    top: 18,
-    right: 1,
-    width: 15,
-    height: 44,
-    borderRadius: 7,
-    backgroundColor: "#6F6F76",
-    transform: [{ rotate: "7deg" }],
-  },
-  rearSpine: {
-    position: "absolute",
-    top: 26,
-    left: "50%",
-    marginLeft: -2,
-    width: 4,
-    height: 50,
-    borderRadius: 2,
-    backgroundColor: "#5E5E65",
-  },
-  chestHighlight: {
-    position: "absolute",
-    top: 14,
-    width: 32,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#FF7A18",
-  },
-  chestPecFront: {
-    position: "absolute",
-    top: 13,
-    width: 14,
-    height: 17,
-    borderRadius: 7,
-    backgroundColor: "#FF7A18",
-  },
-  chestPecFrontLeft: {
-    left: 7,
-  },
-  chestPecFrontRight: {
-    right: 7,
-  },
-  chestHighlightRear: {
-    top: 22,
-    width: 18,
-    height: 10,
-    borderRadius: 5,
-  },
-  backHighlight: {
-    position: "absolute",
-    top: 42,
-    width: 22,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#FF7A18",
-  },
-  backHighlightRear: {
-    top: 10,
+  armSvgWrap: {
     width: 40,
-    height: 24,
-    borderRadius: 12,
+    height: 132,
+    alignItems: "center",
   },
-  coreHighlight: {
+  forearmWrap: {
     position: "absolute",
-    top: 56,
-    width: 18,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#A39CA3",
-  },
-  coreHighlightRear: {
-    top: 62,
-    width: 20,
-    height: 14,
-    borderRadius: 7,
-  },
-  upperArm: {
-    width: 16,
-    height: 54,
-    borderRadius: 9,
-    backgroundColor: "#A1A1AA",
-    marginTop: 6,
-    position: "relative",
-  },
-  leftUpperArm: {
-    marginRight: 12,
-    transformOrigin: "top center" as never,
-  },
-  rightUpperArm: {
-    marginLeft: 12,
-    transformOrigin: "top center" as never,
-  },
-  armHighlight: {
-    position: "absolute",
-    top: 16,
+    top: 55,
     left: 2,
-    right: 2,
-    height: 18,
-    borderRadius: 8,
-    backgroundColor: "#FF7A18",
+    width: 36,
+    height: 96,
+    transformOrigin: "top center" as never,
   },
-  armHighlightRearLeft: {
+  armHlOverlay: {
+    ...StyleSheet.absoluteFillObject,
     left: 0,
-    right: 5,
-    top: 14,
-    height: 20,
-    borderRadius: 7,
+    top: 0,
   },
-  armHighlightRearRight: {
-    left: 5,
-    right: 0,
-    top: 14,
-    height: 20,
-    borderRadius: 7,
-  },
-  lowerArm: {
+  armHlOverlayUpper: {
     position: "absolute",
-    top: 42,
-    left: 2,
-    width: 12,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: "#8F8F94",
-    transformOrigin: "top center" as never,
+    left: 0,
+    top: 0,
+    width: 40,
+    height: 78,
+  },
+  torso: {
+    width: 108,
+    height: 148,
+    alignItems: "center",
+    position: "relative",
+    marginHorizontal: 0,
+    overflow: "visible",
   },
   legsRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 14,
-    marginTop: 10,
+    gap: 8,
+    marginTop: -12,
   },
-  leg: {
-    width: 16,
-    height: 86,
-    borderRadius: 10,
-    backgroundColor: "#7C7C84",
+  legColumn: {
+    width: 56,
+    height: 168,
     position: "relative",
-  },
-  legHighlight: {
-    position: "absolute",
-    top: 16,
-    left: 2,
-    right: 2,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: "#FF7A18",
+    alignItems: "center",
   },
   debugText: {
     marginTop: 10,
