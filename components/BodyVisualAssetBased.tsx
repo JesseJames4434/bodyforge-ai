@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import React, { useMemo } from "react";
 import type { ImageSourcePropType } from "react-native";
 import { StyleSheet, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import {
   type BodyVisualProps,
@@ -62,33 +62,8 @@ function postureMotion(posture: Posture): { scale: number; translateY: number } 
   }
 }
 
-/** Temporary inline silhouettes: front (chest taper, leg split); back (wider upper back, waist, glute shelf). */
-const SILHOUETTE_PATH = {
-  front: `
-    M 100 8
-    C 112 8 121 16 123 28
-    C 125 37 122 46 116 52
-    L 114 56
-    C 132 60 156 72 160 92
-    C 162 104 156 118 146 130
-    C 136 144 126 154 122 168
-    C 118 182 120 196 124 210
-    C 126 224 118 242 110 252
-    L 105 254
-    L 100 242
-    L 95 254
-    L 90 252
-    C 82 242 74 224 76 210
-    C 80 196 82 182 78 168
-    C 74 154 64 144 54 130
-    C 44 118 38 104 40 92
-    C 44 72 68 60 86 56
-    L 84 52
-    C 78 46 75 37 77 28
-    C 79 16 88 8 100 8
-    Z
-  `,
-  back: `
+/** Temporary back silhouette (single path). Front uses discrete primitives in {@link FrontBodySilhouette}. */
+const SILHOUETTE_PATH_BACK = `
     M 100 8
     C 112 8 121 16 123 28
     C 125 37 122 46 116 52
@@ -109,27 +84,54 @@ const SILHOUETTE_PATH = {
     C 78 46 75 37 77 28
     C 79 16 88 8 100 8
     Z
-  `,
-} as const;
+`;
 
-function silhouettePathForKind(kind: PlaceholderKind): keyof typeof SILHOUETTE_PATH {
-  return kind === "backBase" || kind === "backHighlight" ? "back" : "front";
+function isBackPlaceholderKind(kind: PlaceholderKind): boolean {
+  return kind === "backBase" || kind === "backHighlight";
+}
+
+/** Front placeholder: separate head, neck, shoulders, chest, waist, pelvis, legs (no single full-body path). */
+function FrontBodySilhouette({ fill, stroke }: { fill: string; stroke: string }) {
+  const s = {
+    fill,
+    stroke,
+    strokeWidth: 1.25,
+    strokeLinejoin: "round" as const,
+    strokeLinecap: "round" as const,
+  };
+  return (
+    <>
+      <Circle cx={100} cy={22} r={13} {...s} />
+      <Rect x={93} y={34} width={14} height={9} rx={3.5} {...s} />
+      <Rect x={36} y={43} width={128} height={11} rx={6} {...s} />
+      <Path
+        d="M 41 56 L 159 56 Q 162 56 162 60 L 145 104 Q 143 108 139 108 L 61 108 Q 57 108 55 104 L 38 60 Q 38 56 41 56 Z"
+        {...s}
+      />
+      <Rect x={64} y={108} width={72} height={34} rx={10} {...s} />
+      <Rect x={56} y={140} width={88} height={28} rx={11} {...s} />
+      <Rect x={62} y={166} width={30} height={88} rx={10} {...s} />
+      <Rect x={108} y={166} width={30} height={88} rx={10} {...s} />
+    </>
+  );
 }
 
 function SlotPlaceholder({ kind }: { kind: PlaceholderKind }) {
   const p = PLACEHOLDER[kind];
-  const side = silhouettePathForKind(kind);
-  const d = SILHOUETTE_PATH[side];
   return (
     <Svg width="100%" height="100%" viewBox="0 0 200 260" preserveAspectRatio="xMidYMid meet">
-      <Path
-        d={d}
-        fill={p.fill}
-        stroke={p.stroke}
-        strokeWidth={1.25}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+      {isBackPlaceholderKind(kind) ? (
+        <Path
+          d={SILHOUETTE_PATH_BACK}
+          fill={p.fill}
+          stroke={p.stroke}
+          strokeWidth={1.25}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : (
+        <FrontBodySilhouette fill={p.fill} stroke={p.stroke} />
+      )}
     </Svg>
   );
 }
