@@ -3,6 +3,10 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import BodyVisualAssetBased from '../components/BodyVisualAssetBased';
+
+const exerciseAvatarAssets = {
+  frontBase: require('../assets/avatar/body-front-athletic.svg'),
+};
 import {
   getCoachingCueForSet,
   getExerciseById,
@@ -94,6 +98,7 @@ export default function ExerciseScreen() {
         visualProfile={exercise.visualProfile}
         highlightedMuscles={exercise.muscles[bodySide]}
         postureState={postureState}
+        assets={exerciseAvatarAssets}
       />
 
       <View style={styles.card}>
