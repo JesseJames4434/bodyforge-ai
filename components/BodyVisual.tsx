@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
-import Svg, { Ellipse, G, Path } from "react-native-svg";
+import Svg, { Circle, G, Path, Rect } from "react-native-svg";
 
 export type Posture = "setup" | "stretch" | "contraction";
 export type Profile = "press" | "hinge" | "curl";
@@ -224,18 +224,13 @@ const C = {
   rearPlane: "#76767E",
 };
 
-/** viewBox 0 0 200 220 — neck base → delts → chest/ribcage → waist → pelvis (arms meet lateral shelf). */
-const PATH_FRONT_TORSO =
-  "M100 27" +
-  " C93 27 86 30 80 34" +
-  " L70 41 C56 52 45 68 42 88" +
-  " C39 108 40 128 44 146" +
-  " C48 160 60 170 76 175" +
-  " L88 178 L100 180 L112 178 L124 175" +
-  " C140 170 152 160 156 146" +
-  " C160 128 161 108 158 88" +
-  " C155 68 144 52 130 41" +
-  " L120 34 C114 30 107 27 100 27 Z";
+/**
+ * Front torso — viewBox 0 0 200 220.
+ * Discrete sections (shoulders widest → chest taper → waist → pelvis flare); not one merged blob.
+ */
+const PATH_FRONT_CHEST = "M 56 56 L 144 56 L 134 118 L 66 118 Z";
+const PATH_FRONT_WAIST = "M 66 118 L 134 118 L 126 158 L 74 158 Z";
+const PATH_FRONT_PELVIS = "M 74 158 L 126 158 L 132 182 L 68 182 Z";
 
 const PATH_BACK_TORSO =
   "M100 27" +
@@ -248,15 +243,10 @@ const PATH_BACK_TORSO =
   " C162 82 153 60 137 45" +
   " L126 36 C118 30 109 27 100 27 Z";
 
-/** viewBox 0 0 200 200 — continuous hip shelf into thighs; crotch nested under torso. */
+/** viewBox 0 0 200 200 — two separate legs with a visible midline gap (not merged). */
 const PATH_FRONT_LEGS =
-  "M77 2 C69 7 64 20 63 40" +
-  " C61 78 64 118 67 152 L64 186 L79 192 L90 150" +
-  " C92 106 96 66 99 38 L100 22 L101 38" +
-  " C104 66 108 106 110 150 L121 192 L136 186 L133 152" +
-  " C136 118 139 78 137 40" +
-  " C136 20 131 7 123 2" +
-  " L111 0 L100 3 L89 0 Z";
+  "M 60 8 L 90 8 Q 94 8 94 12 L 94 192 Q 94 196 90 196 L 60 196 Q 56 196 56 192 L 56 12 Q 56 8 60 8 Z" +
+  " M 110 8 L 140 8 Q 144 8 144 12 L 144 192 Q 144 196 140 196 L 110 196 Q 106 196 106 192 L 106 12 Q 106 8 110 8 Z";
 
 const PATH_BACK_LEGS =
   "M75 1 C67 6 62 18 61 36" +
@@ -272,22 +262,26 @@ const PATH_BACK_SPINE =
   "M100 44 C98 44 96 48 95 54 L94 122 C94 132 96 142 100 147 C104 142 106 132 106 122 L105 54 C104 48 102 44 100 44 Z";
 
 /** Coaching highlight regions (same viewBoxes as torso / legs). */
-const PATH_HL_PEC_L =
-  "M100 180 L87 177 L76 160 C71 140 73 114 79 94 C85 80 92 74 100 76 L100 180 Z";
-const PATH_HL_PEC_R =
-  "M100 180 L113 177 L124 160 C129 140 127 114 121 94 C115 80 108 74 100 76 L100 180 Z";
-const PATH_HL_STERNAL = "M100 114 L94 114 L90 144 L100 158 L110 144 L106 114 Z";
+const PATH_HL_PEC_L = "M 100 56 L 56 56 L 66 118 L 100 118 Z";
+const PATH_HL_PEC_R = "M 100 56 L 144 56 L 134 118 L 100 118 Z";
+const PATH_HL_STERNAL = "M 100 64 L 108 92 L 100 108 L 92 92 Z";
 const PATH_HL_BACK_UPPER =
   "M100 50 L76 56 L65 78 L69 100 L88 110 L100 114 L112 110 L131 100 L135 78 L124 56 Z";
 const PATH_HL_BACK_LOWER =
   "M100 114 L82 122 L77 144 L86 166 L100 173 L114 166 L123 144 L118 122 Z";
+
+/** Front-view “back” coaching read (low opacity) — aligned to segmented front torso, not back blob. */
+const PATH_HL_BACK_UPPER_ON_FRONT =
+  "M 58 54 L 78 58 L 86 116 L 70 120 Z M 142 54 L 122 58 L 114 116 L 130 120 Z";
+const PATH_HL_BACK_LOWER_ON_FRONT =
+  "M 76 118 L 92 122 L 90 156 L 76 154 Z M 124 118 L 108 122 L 110 156 L 124 154 Z";
 const PATH_HL_CORE_F =
-  "M100 174 L88 171 L84 152 L90 132 L100 128 L110 132 L116 152 L112 171 Z";
+  "M 100 182 L 72 176 L 76 122 L 100 116 L 124 122 L 128 176 Z";
 const PATH_HL_CORE_B =
   "M100 176 L88 174 L84 154 L92 134 L100 130 L108 134 L116 154 L112 174 Z";
 
-const PATH_HL_QUAD_L = "M86 24 L77 2 L70 32 L72 96 L76 138 L90 146 L94 96 Z";
-const PATH_HL_QUAD_R = "M114 24 L123 2 L130 32 L128 96 L124 138 L110 146 L106 96 Z";
+const PATH_HL_QUAD_L = "M 75 18 L 62 10 L 60 88 L 74 132 L 88 122 L 86 28 Z";
+const PATH_HL_QUAD_R = "M 125 18 L 138 10 L 140 88 L 126 132 L 112 122 L 114 28 Z";
 
 /** Upper arm (pivot top center ~20,5) viewBox 0 0 40 78 — delt cap, compact elbow. */
 const PATH_ARM_UPPER_F =
@@ -717,10 +711,14 @@ export default function BodyVisual(props: Props) {
           <Animated.View style={{ transform: [{ translateY: phaseHeadTranslateY }] }}>
             <Animated.View style={{ opacity: headShell }}>
               <Svg width={44} height={54} viewBox="0 0 80 92" pointerEvents="none">
-                <Ellipse cx={40} cy={25} rx={18.5} ry={22.5} fill={C.limbSoft} />
-                <Path
-                  d="M27 43 Q40 49 53 43 Q55 50 54 58 L52 74 Q40 82 28 74 L26 58 Q25 50 27 43 Z"
-                  fill={C.limb}
+                <Circle
+                  cx={40}
+                  cy={28}
+                  r={19}
+                  fill={C.limbSoft}
+                  stroke={C.ink}
+                  strokeOpacity={0.12}
+                  strokeWidth={0.8}
                 />
               </Svg>
             </Animated.View>
@@ -764,13 +762,63 @@ export default function BodyVisual(props: Props) {
               ]}
             >
               <Svg width={108} height={148} viewBox="0 0 200 220" pointerEvents="none">
-                <Path
-                  d={isBack ? PATH_BACK_TORSO : PATH_FRONT_TORSO}
-                  fill={torsoFill}
-                  stroke={C.ink}
-                  strokeOpacity={0.12}
-                  strokeWidth={0.8}
-                />
+                {isBack ? (
+                  <Path
+                    d={PATH_BACK_TORSO}
+                    fill={torsoFill}
+                    stroke={C.ink}
+                    strokeOpacity={0.12}
+                    strokeWidth={0.8}
+                  />
+                ) : (
+                  <>
+                    <Rect
+                      x={90}
+                      y={20}
+                      width={20}
+                      height={14}
+                      rx={5}
+                      ry={5}
+                      fill={torsoFill}
+                      stroke={C.ink}
+                      strokeOpacity={0.12}
+                      strokeWidth={0.8}
+                    />
+                    <Rect
+                      x={50}
+                      y={32}
+                      width={100}
+                      height={24}
+                      rx={12}
+                      ry={12}
+                      fill={torsoFill}
+                      stroke={C.ink}
+                      strokeOpacity={0.12}
+                      strokeWidth={0.8}
+                    />
+                    <Path
+                      d={PATH_FRONT_CHEST}
+                      fill={torsoFill}
+                      stroke={C.ink}
+                      strokeOpacity={0.12}
+                      strokeWidth={0.8}
+                    />
+                    <Path
+                      d={PATH_FRONT_WAIST}
+                      fill={torsoFill}
+                      stroke={C.ink}
+                      strokeOpacity={0.12}
+                      strokeWidth={0.8}
+                    />
+                    <Path
+                      d={PATH_FRONT_PELVIS}
+                      fill={torsoFill}
+                      stroke={C.ink}
+                      strokeOpacity={0.12}
+                      strokeWidth={0.8}
+                    />
+                  </>
+                )}
                 {isBack ? (
                   <Path d={PATH_BACK_SPINE} fill={C.spine} opacity={0.55} />
                 ) : null}
@@ -811,12 +859,12 @@ export default function BodyVisual(props: Props) {
                   <Animated.View style={{ opacity: pulseWrap("back") }}>
                     <View style={{ opacity: isBack ? 1 : 0.28 }}>
                       <AnimatedPath
-                        d={isBack ? PATH_HL_BACK_UPPER : PATH_HL_BACK_UPPER}
+                        d={isBack ? PATH_HL_BACK_UPPER : PATH_HL_BACK_UPPER_ON_FRONT}
                         fill={C.accent}
                         opacity={backOpacityWithStretch}
                       />
                       <AnimatedPath
-                        d={isBack ? PATH_HL_BACK_LOWER : PATH_HL_BACK_LOWER}
+                        d={isBack ? PATH_HL_BACK_LOWER : PATH_HL_BACK_LOWER_ON_FRONT}
                         fill={C.accent}
                         opacity={backOpacityWithStretch}
                       />
