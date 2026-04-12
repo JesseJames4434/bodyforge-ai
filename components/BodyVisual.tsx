@@ -1,8 +1,28 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
-type Posture = "setup" | "stretch" | "contraction";
-type Profile = "press" | "hinge" | "curl";
+export type Posture = "setup" | "stretch" | "contraction";
+export type Profile = "press" | "hinge" | "curl";
+
+export type CoachingFocus =
+  | "auto"
+  | "full"
+  | "chest"
+  | "back"
+  | "core"
+  | "arms"
+  | "legs";
+
+export type Coaching = {
+  focus?: CoachingFocus;
+  /** 0–1 scales how strongly focus shifts muscle highlights. */
+  intensity?: number;
+};
+
+export type ResolvedCoaching = {
+  focus: CoachingFocus;
+  intensity: number;
+};
 
 type PostureObject = {
   label?: unknown;
@@ -18,11 +38,37 @@ type Props = {
   visualProfile?: Profile;
   exerciseType?: Profile;
   profile?: Profile;
+  coaching?: Coaching | null;
+};
+
+type RegionWeights = {
+  chest: number;
+  back: number;
+  core: number;
+  arms: number;
+  legs: number;
 };
 
 export default function BodyVisual(props: Props) {
   const posture = resolvePosture(props);
   const profile = resolveProfile(props);
+
+  const { coaching, regionWeights } = useMemo(() => {
+    const c = resolveCoaching(props.coaching);
+    return { coaching: c, regionWeights: computeRegionWeights(c) };
+  }, [props.coaching?.focus, props.coaching?.intensity]);
+
+  const chestMult = useRef(new Animated.Value(regionWeights.chest)).current;
+  const backMult = useRef(new Animated.Value(regionWeights.back)).current;
+  const armMult = useRef(new Animated.Value(regionWeights.arms)).current;
+  const legMult = useRef(new Animated.Value(regionWeights.legs)).current;
+
+  useEffect(() => {
+    chestMult.setValue(regionWeights.chest);
+    backMult.setValue(regionWeights.back);
+    armMult.setValue(regionWeights.arms);
+    legMult.setValue(regionWeights.legs);
+  }, [regionWeights, chestMult, backMult, armMult, legMult]);
 
   const anim = useRef(new Animated.Value(getPostureValue(posture))).current;
 
@@ -139,6 +185,12 @@ export default function BodyVisual(props: Props) {
 
   const legOpacity = profile === "hinge" ? intensity : config.legBase;
 
+  const chestOpacityOut = weightedOpacity(chestOpacity, chestMult, regionWeights.chest);
+  const backOpacityOut = weightedOpacity(backOpacity, backMult, regionWeights.back);
+  const armOpacityOut = weightedOpacity(armOpacity, armMult, regionWeights.arms);
+  const legOpacityOut = weightedOpacity(legOpacity, legMult, regionWeights.legs);
+  const coreOpacityOut = 0.45 * regionWeights.core;
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.figureBox}>
@@ -165,7 +217,7 @@ export default function BodyVisual(props: Props) {
                 },
               ]}
             >
-              <Animated.View style={[styles.armHighlight, { opacity: armOpacity }]} />
+              <Animated.View style={[styles.armHighlight, { opacity: armOpacityOut }]} />
               <Animated.View
                 style={[
                   styles.lowerArm,
@@ -175,9 +227,9 @@ export default function BodyVisual(props: Props) {
             </Animated.View>
 
             <View style={styles.torso}>
-              <Animated.View style={[styles.chestHighlight, { opacity: chestOpacity }]} />
-              <Animated.View style={[styles.backHighlight, { opacity: backOpacity }]} />
-              <View style={styles.coreHighlight} />
+              <Animated.View style={[styles.chestHighlight, { opacity: chestOpacityOut }]} />
+              <Animated.View style={[styles.backHighlight, { opacity: backOpacityOut }]} />
+              <View style={[styles.coreHighlight, { opacity: coreOpacityOut }]} />
             </View>
 
             <Animated.View
@@ -192,7 +244,7 @@ export default function BodyVisual(props: Props) {
                 },
               ]}
             >
-              <Animated.View style={[styles.armHighlight, { opacity: armOpacity }]} />
+              <Animated.View style={[styles.armHighlight, { opacity: armOpacityOut }]} />
               <Animated.View
                 style={[
                   styles.lowerArm,
@@ -204,20 +256,99 @@ export default function BodyVisual(props: Props) {
 
           <View style={styles.legsRow}>
             <View style={styles.leg}>
-              <Animated.View style={[styles.legHighlight, { opacity: legOpacity }]} />
+              <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
             </View>
             <View style={styles.leg}>
-              <Animated.View style={[styles.legHighlight, { opacity: legOpacity }]} />
+              <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
             </View>
           </View>
         </Animated.View>
       </View>
 
       <Text style={styles.debugText}>
-        profile: {profile} | posture: {posture}
+        profile: {profile} | posture: {posture} | coach: {coaching.focus} ({coaching.intensity.toFixed(2)})
       </Text>
     </View>
   );
+}
+
+export function resolveCoaching(input?: Coaching | null): ResolvedCoaching {
+  if (!input) {
+    return { focus: "auto", intensity: 1 };
+  }
+  const focus = input.focus ?? "auto";
+  const intensity = clamp(input.intensity ?? 1, 0, 1);
+  return { focus, intensity };
+}
+
+function computeRegionWeights(coaching: ResolvedCoaching): RegionWeights {
+  const i = coaching.intensity;
+  const neutral: RegionWeights = {
+    chest: 1,
+    back: 1,
+    core: 1,
+    arms: 1,
+    legs: 1,
+  };
+
+  if (coaching.focus === "auto") {
+    return neutral;
+  }
+
+  if (coaching.focus === "full") {
+    const bump = 1 + 0.14 * i;
+    return {
+      chest: bump,
+      back: bump,
+      core: bump,
+      arms: bump,
+      legs: bump,
+    };
+  }
+
+  const dim = Math.max(0.5, 1 - 0.22 * i);
+  const lift = 1 + 0.42 * i;
+
+  const w: RegionWeights = {
+    chest: dim,
+    back: dim,
+    core: dim,
+    arms: dim,
+    legs: dim,
+  };
+
+  switch (coaching.focus) {
+    case "chest":
+      w.chest = lift;
+      break;
+    case "back":
+      w.back = lift;
+      break;
+    case "core":
+      w.core = lift;
+      break;
+    case "arms":
+      w.arms = lift;
+      break;
+    case "legs":
+      w.legs = lift;
+      break;
+    default:
+      break;
+  }
+
+  return w;
+}
+
+function weightedOpacity(
+  opacity: number | Animated.AnimatedInterpolation<number>,
+  mult: Animated.Value,
+  multSnapshot: number
+): number | Animated.AnimatedInterpolation<number> {
+  if (typeof opacity === "number") {
+    return clamp(opacity * multSnapshot, 0, 1);
+  }
+  return Animated.multiply(opacity, mult);
 }
 
 function resolvePosture(props: Props): Posture {
@@ -269,6 +400,10 @@ function getPostureValue(posture: Posture) {
     default:
       return 0;
   }
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n));
 }
 
 const styles = StyleSheet.create({
@@ -331,7 +466,6 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     backgroundColor: "#A39CA3",
-    opacity: 0.45,
   },
   upperArm: {
     width: 16,
