@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 export type Posture = "setup" | "stretch" | "contraction";
 export type Profile = "press" | "hinge" | "curl";
@@ -49,26 +49,220 @@ type RegionWeights = {
   legs: number;
 };
 
+type RegionTier = "neutral" | "full" | "primary" | "secondary" | "inactive";
+
+type ProfileLayout = {
+  leftShoulder: [string, string, string];
+  rightShoulder: [string, string, string];
+  leftElbow: [string, string, string];
+  rightElbow: [string, string, string];
+  torso: [string, string, string];
+  leftShift: [number, number, number];
+  rightShift: [number, number, number];
+  bases: RegionWeights;
+};
+
+/** Single source for profile motion + involvement (keep coaching tiers aligned). */
+const PROFILE_LAYOUT: Record<Profile, ProfileLayout> = {
+  hinge: {
+    leftShoulder: ["18deg", "34deg", "20deg"],
+    rightShoulder: ["-18deg", "-34deg", "-20deg"],
+    leftElbow: ["10deg", "18deg", "10deg"],
+    rightElbow: ["-10deg", "-18deg", "-10deg"],
+    torso: ["0deg", "12deg", "4deg"],
+    leftShift: [0, -2, 0],
+    rightShift: [0, 2, 0],
+    bases: {
+      chest: 0.08,
+      back: 0.75,
+      core: 0.52,
+      arms: 0.18,
+      legs: 0.8,
+    },
+  },
+  curl: {
+    leftShoulder: ["20deg", "24deg", "16deg"],
+    rightShoulder: ["-20deg", "-24deg", "-16deg"],
+    leftElbow: ["-12deg", "-60deg", "-115deg"],
+    rightElbow: ["12deg", "60deg", "115deg"],
+    torso: ["0deg", "0deg", "0deg"],
+    leftShift: [0, 0, 0],
+    rightShift: [0, 0, 0],
+    bases: {
+      chest: 0.08,
+      back: 0.08,
+      core: 0.24,
+      arms: 0.85,
+      legs: 0.08,
+    },
+  },
+  press: {
+    leftShoulder: ["26deg", "58deg", "148deg"],
+    rightShoulder: ["-26deg", "-58deg", "-148deg"],
+    leftElbow: ["-42deg", "-88deg", "-16deg"],
+    rightElbow: ["42deg", "88deg", "16deg"],
+    torso: ["-2deg", "-8deg", "-2deg"],
+    leftShift: [0, -4, 10],
+    rightShift: [0, 4, -10],
+    bases: {
+      chest: 0.82,
+      back: 0.08,
+      core: 0.48,
+      arms: 0.58,
+      legs: 0.08,
+    },
+  },
+};
+
+const COACH_TIMING_MS = 380;
+const COACH_EASING = Easing.out(Easing.cubic);
+const SECONDARY_RELEVANCE_MIN = 0.26;
+
+const BASE_BLEND_MS = 240;
+
 export default function BodyVisual(props: Props) {
   const posture = resolvePosture(props);
   const profile = resolveProfile(props);
+  const layout = PROFILE_LAYOUT[profile];
+  const coaching = useMemo(() => resolveCoaching(props.coaching), [props.coaching]);
 
-  const { coaching, regionWeights } = useMemo(() => {
-    const c = resolveCoaching(props.coaching);
-    return { coaching: c, regionWeights: computeRegionWeights(c) };
-  }, [props.coaching?.focus, props.coaching?.intensity]);
+  const chestBaseAnim = useRef(new Animated.Value(layout.bases.chest)).current;
+  const backBaseAnim = useRef(new Animated.Value(layout.bases.back)).current;
+  const armBaseAnim = useRef(new Animated.Value(layout.bases.arms)).current;
+  const legBaseAnim = useRef(new Animated.Value(layout.bases.legs)).current;
+  const coreBaseAnim = useRef(new Animated.Value(0.45)).current;
 
-  const chestMult = useRef(new Animated.Value(regionWeights.chest)).current;
-  const backMult = useRef(new Animated.Value(regionWeights.back)).current;
-  const armMult = useRef(new Animated.Value(regionWeights.arms)).current;
-  const legMult = useRef(new Animated.Value(regionWeights.legs)).current;
+  const { highlightTargets, shellTargets, headShellTarget } = useMemo(
+    () => computeCoachingVisualTargets(coaching, profile),
+    [coaching.focus, coaching.intensity, profile]
+  );
+
+  const chestMult = useRef(new Animated.Value(highlightTargets.chest)).current;
+  const backMult = useRef(new Animated.Value(highlightTargets.back)).current;
+  const coreMult = useRef(new Animated.Value(highlightTargets.core)).current;
+  const armMult = useRef(new Animated.Value(highlightTargets.arms)).current;
+  const legMult = useRef(new Animated.Value(highlightTargets.legs)).current;
+
+  const torsoShell = useRef(new Animated.Value(shellTargets.torso)).current;
+  const armShell = useRef(new Animated.Value(shellTargets.arms)).current;
+  const legShell = useRef(new Animated.Value(shellTargets.legs)).current;
+  const headShell = useRef(new Animated.Value(headShellTarget)).current;
 
   useEffect(() => {
-    chestMult.setValue(regionWeights.chest);
-    backMult.setValue(regionWeights.back);
-    armMult.setValue(regionWeights.arms);
-    legMult.setValue(regionWeights.legs);
-  }, [regionWeights, chestMult, backMult, armMult, legMult]);
+    Animated.parallel([
+      Animated.timing(chestMult, {
+        toValue: highlightTargets.chest,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+      Animated.timing(backMult, {
+        toValue: highlightTargets.back,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+      Animated.timing(coreMult, {
+        toValue: highlightTargets.core,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+      Animated.timing(armMult, {
+        toValue: highlightTargets.arms,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+      Animated.timing(legMult, {
+        toValue: highlightTargets.legs,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+      Animated.timing(torsoShell, {
+        toValue: shellTargets.torso,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+      Animated.timing(armShell, {
+        toValue: shellTargets.arms,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+      Animated.timing(legShell, {
+        toValue: shellTargets.legs,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+      Animated.timing(headShell, {
+        toValue: headShellTarget,
+        duration: COACH_TIMING_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [
+    highlightTargets,
+    shellTargets,
+    headShellTarget,
+    chestMult,
+    backMult,
+    coreMult,
+    armMult,
+    legMult,
+    torsoShell,
+    armShell,
+    legShell,
+    headShell,
+  ]);
+
+  useEffect(() => {
+    if (profile !== "press") {
+      Animated.timing(chestBaseAnim, {
+        toValue: layout.bases.chest,
+        duration: BASE_BLEND_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [profile, layout.bases.chest, chestBaseAnim]);
+
+  useEffect(() => {
+    if (profile !== "hinge") {
+      Animated.timing(backBaseAnim, {
+        toValue: layout.bases.back,
+        duration: BASE_BLEND_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [profile, layout.bases.back, backBaseAnim]);
+
+  useEffect(() => {
+    if (profile === "hinge") {
+      Animated.timing(armBaseAnim, {
+        toValue: layout.bases.arms,
+        duration: BASE_BLEND_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [profile, layout.bases.arms, armBaseAnim]);
+
+  useEffect(() => {
+    if (profile !== "hinge") {
+      Animated.timing(legBaseAnim, {
+        toValue: layout.bases.legs,
+        duration: BASE_BLEND_MS,
+        easing: COACH_EASING,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [profile, layout.bases.legs, legBaseAnim]);
 
   const anim = useRef(new Animated.Value(getPostureValue(posture))).current;
 
@@ -80,89 +274,39 @@ export default function BodyVisual(props: Props) {
     }).start();
   }, [posture, anim]);
 
-  const config = useMemo(() => {
-    switch (profile) {
-      case "hinge":
-        return {
-          leftShoulder: ["18deg", "34deg", "20deg"] as [string, string, string],
-          rightShoulder: ["-18deg", "-34deg", "-20deg"] as [string, string, string],
-          leftElbow: ["10deg", "18deg", "10deg"] as [string, string, string],
-          rightElbow: ["-10deg", "-18deg", "-10deg"] as [string, string, string],
-          torso: ["0deg", "12deg", "4deg"] as [string, string, string],
-          leftShift: [0, -2, 0] as [number, number, number],
-          rightShift: [0, 2, 0] as [number, number, number],
-          chestBase: 0.08,
-          backBase: 0.75,
-          armBase: 0.18,
-          legBase: 0.8,
-        };
-
-      case "curl":
-        return {
-          leftShoulder: ["20deg", "24deg", "16deg"] as [string, string, string],
-          rightShoulder: ["-20deg", "-24deg", "-16deg"] as [string, string, string],
-          leftElbow: ["-12deg", "-60deg", "-115deg"] as [string, string, string],
-          rightElbow: ["12deg", "60deg", "115deg"] as [string, string, string],
-          torso: ["0deg", "0deg", "0deg"] as [string, string, string],
-          leftShift: [0, 0, 0] as [number, number, number],
-          rightShift: [0, 0, 0] as [number, number, number],
-          chestBase: 0.08,
-          backBase: 0.08,
-          armBase: 0.85,
-          legBase: 0.08,
-        };
-
-      case "press":
-      default:
-        return {
-          leftShoulder: ["26deg", "58deg", "148deg"] as [string, string, string],
-          rightShoulder: ["-26deg", "-58deg", "-148deg"] as [string, string, string],
-          leftElbow: ["-42deg", "-88deg", "-16deg"] as [string, string, string],
-          rightElbow: ["42deg", "88deg", "16deg"] as [string, string, string],
-          torso: ["-2deg", "-8deg", "-2deg"] as [string, string, string],
-          leftShift: [0, -4, 10] as [number, number, number],
-          rightShift: [0, 4, -10] as [number, number, number],
-          chestBase: 0.82,
-          backBase: 0.08,
-          armBase: 0.58,
-          legBase: 0.08,
-        };
-    }
-  }, [profile]);
-
   const leftShoulderRotate = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: config.leftShoulder,
+    outputRange: layout.leftShoulder,
   });
 
   const rightShoulderRotate = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: config.rightShoulder,
+    outputRange: layout.rightShoulder,
   });
 
   const leftElbowRotate = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: config.leftElbow,
+    outputRange: layout.leftElbow,
   });
 
   const rightElbowRotate = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: config.rightElbow,
+    outputRange: layout.rightElbow,
   });
 
   const torsoRotate = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: config.torso,
+    outputRange: layout.torso,
   });
 
   const leftArmShift = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: config.leftShift,
+    outputRange: layout.leftShift,
   });
 
   const rightArmShift = anim.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: config.rightShift,
+    outputRange: layout.rightShift,
   });
 
   const intensity = anim.interpolate({
@@ -170,26 +314,28 @@ export default function BodyVisual(props: Props) {
     outputRange: [0.35, 0.65, 1],
   });
 
-  const chestOpacity = profile === "press" ? intensity : config.chestBase;
-  const backOpacity = profile === "hinge" ? intensity : config.backBase;
+  const armPressOpacity = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [0.45, 0.68, 0.82],
+  });
 
-  const armOpacity =
+  const chestOpacityOut =
+    profile === "press" ? Animated.multiply(intensity, chestMult) : Animated.multiply(chestBaseAnim, chestMult);
+
+  const backOpacityOut =
+    profile === "hinge" ? Animated.multiply(intensity, backMult) : Animated.multiply(backBaseAnim, backMult);
+
+  const armOpacityOut =
     profile === "curl"
-      ? intensity
+      ? Animated.multiply(intensity, armMult)
       : profile === "press"
-        ? anim.interpolate({
-            inputRange: [0, 1, 2],
-            outputRange: [0.45, 0.68, 0.82],
-          })
-        : config.armBase;
+        ? Animated.multiply(armPressOpacity, armMult)
+        : Animated.multiply(armBaseAnim, armMult);
 
-  const legOpacity = profile === "hinge" ? intensity : config.legBase;
+  const legOpacityOut =
+    profile === "hinge" ? Animated.multiply(intensity, legMult) : Animated.multiply(legBaseAnim, legMult);
 
-  const chestOpacityOut = weightedOpacity(chestOpacity, chestMult, regionWeights.chest);
-  const backOpacityOut = weightedOpacity(backOpacity, backMult, regionWeights.back);
-  const armOpacityOut = weightedOpacity(armOpacity, armMult, regionWeights.arms);
-  const legOpacityOut = weightedOpacity(legOpacity, legMult, regionWeights.legs);
-  const coreOpacityOut = 0.45 * regionWeights.core;
+  const coreOpacityOut = Animated.multiply(coreBaseAnim, coreMult);
 
   return (
     <View style={styles.wrapper}>
@@ -202,7 +348,7 @@ export default function BodyVisual(props: Props) {
             },
           ]}
         >
-          <View style={styles.head} />
+          <Animated.View style={[styles.head, { opacity: headShell }]} />
 
           <View style={styles.upperBodyRow}>
             <Animated.View
@@ -210,6 +356,7 @@ export default function BodyVisual(props: Props) {
                 styles.upperArm,
                 styles.leftUpperArm,
                 {
+                  opacity: armShell,
                   transform: [
                     { translateX: leftArmShift },
                     { rotate: leftShoulderRotate },
@@ -226,17 +373,18 @@ export default function BodyVisual(props: Props) {
               />
             </Animated.View>
 
-            <View style={styles.torso}>
+            <Animated.View style={[styles.torso, { opacity: torsoShell }]}>
               <Animated.View style={[styles.chestHighlight, { opacity: chestOpacityOut }]} />
               <Animated.View style={[styles.backHighlight, { opacity: backOpacityOut }]} />
-              <View style={[styles.coreHighlight, { opacity: coreOpacityOut }]} />
-            </View>
+              <Animated.View style={[styles.coreHighlight, { opacity: coreOpacityOut }]} />
+            </Animated.View>
 
             <Animated.View
               style={[
                 styles.upperArm,
                 styles.rightUpperArm,
                 {
+                  opacity: armShell,
                   transform: [
                     { translateX: rightArmShift },
                     { rotate: rightShoulderRotate },
@@ -255,12 +403,12 @@ export default function BodyVisual(props: Props) {
           </View>
 
           <View style={styles.legsRow}>
-            <View style={styles.leg}>
+            <Animated.View style={[styles.leg, { opacity: legShell }]}>
               <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
-            </View>
-            <View style={styles.leg}>
+            </Animated.View>
+            <Animated.View style={[styles.leg, { opacity: legShell }]}>
               <Animated.View style={[styles.legHighlight, { opacity: legOpacityOut }]} />
-            </View>
+            </Animated.View>
           </View>
         </Animated.View>
       </View>
@@ -281,74 +429,99 @@ export function resolveCoaching(input?: Coaching | null): ResolvedCoaching {
   return { focus, intensity };
 }
 
-function computeRegionWeights(coaching: ResolvedCoaching): RegionWeights {
-  const i = coaching.intensity;
-  const neutral: RegionWeights = {
-    chest: 1,
-    back: 1,
-    core: 1,
-    arms: 1,
-    legs: 1,
-  };
+function regionTier(
+  coaching: ResolvedCoaching,
+  profile: Profile,
+  region: keyof RegionWeights
+): RegionTier {
+  if (coaching.focus === "auto") return "neutral";
+  if (coaching.focus === "full") return "full";
 
-  if (coaching.focus === "auto") {
-    return neutral;
-  }
+  const bases = PROFILE_LAYOUT[profile].bases;
+  const relevance = bases[region];
+  const focus = coaching.focus;
 
-  if (coaching.focus === "full") {
-    const bump = 1 + 0.14 * i;
-    return {
-      chest: bump,
-      back: bump,
-      core: bump,
-      arms: bump,
-      legs: bump,
-    };
-  }
-
-  const dim = Math.max(0.5, 1 - 0.22 * i);
-  const lift = 1 + 0.42 * i;
-
-  const w: RegionWeights = {
-    chest: dim,
-    back: dim,
-    core: dim,
-    arms: dim,
-    legs: dim,
-  };
-
-  switch (coaching.focus) {
-    case "chest":
-      w.chest = lift;
-      break;
-    case "back":
-      w.back = lift;
-      break;
-    case "core":
-      w.core = lift;
-      break;
-    case "arms":
-      w.arms = lift;
-      break;
-    case "legs":
-      w.legs = lift;
-      break;
-    default:
-      break;
-  }
-
-  return w;
+  if (focus === region) return "primary";
+  if (relevance >= SECONDARY_RELEVANCE_MIN) return "secondary";
+  return "inactive";
 }
 
-function weightedOpacity(
-  opacity: number | Animated.AnimatedInterpolation<number>,
-  mult: Animated.Value,
-  multSnapshot: number
-): number | Animated.AnimatedInterpolation<number> {
-  if (typeof opacity === "number") {
-    return clamp(opacity * multSnapshot, 0, 1);
+function highlightMultiplier(tier: RegionTier, intensity: number): number {
+  const i = intensity;
+  switch (tier) {
+    case "neutral":
+      return 1;
+    case "full":
+      return 1 + 0.2 * i;
+    case "primary":
+      return 1 + 0.52 * i;
+    case "secondary":
+      return 1 + 0.16 * i;
+    case "inactive":
+      return Math.max(0.38, 1 - 0.36 * i);
+    default:
+      return 1;
   }
-  return Animated.multiply(opacity, mult);
+}
+
+function shellOpacityForTier(tier: RegionTier, intensity: number): number {
+  const i = intensity;
+  switch (tier) {
+    case "neutral":
+    case "full":
+      return 1;
+    case "primary":
+      return 1;
+    case "secondary":
+      return 0.9 + 0.05 * (1 - i);
+    case "inactive":
+      return Math.max(0.64, 0.86 - 0.24 * i);
+    default:
+      return 1;
+  }
+}
+
+function computeCoachingVisualTargets(
+  coaching: ResolvedCoaching,
+  profile: Profile
+): {
+  highlightTargets: RegionWeights;
+  shellTargets: { torso: number; arms: number; legs: number };
+  headShellTarget: number;
+} {
+  const tiers: Record<keyof RegionWeights, RegionTier> = {
+    chest: regionTier(coaching, profile, "chest"),
+    back: regionTier(coaching, profile, "back"),
+    core: regionTier(coaching, profile, "core"),
+    arms: regionTier(coaching, profile, "arms"),
+    legs: regionTier(coaching, profile, "legs"),
+  };
+
+  const highlightTargets: RegionWeights = {
+    chest: highlightMultiplier(tiers.chest, coaching.intensity),
+    back: highlightMultiplier(tiers.back, coaching.intensity),
+    core: highlightMultiplier(tiers.core, coaching.intensity),
+    arms: highlightMultiplier(tiers.arms, coaching.intensity),
+    legs: highlightMultiplier(tiers.legs, coaching.intensity),
+  };
+
+  const shellChest = shellOpacityForTier(tiers.chest, coaching.intensity);
+  const shellBack = shellOpacityForTier(tiers.back, coaching.intensity);
+  const shellCore = shellOpacityForTier(tiers.core, coaching.intensity);
+  const torso = Math.max(shellChest, shellBack, shellCore);
+
+  const shellTargets = {
+    torso,
+    arms: shellOpacityForTier(tiers.arms, coaching.intensity),
+    legs: shellOpacityForTier(tiers.legs, coaching.intensity),
+  };
+
+  const headShellTarget =
+    tiers.legs === "primary" && coaching.focus !== "auto"
+      ? clamp(0.93 - 0.05 * coaching.intensity, 0.86, 1)
+      : 1;
+
+  return { highlightTargets, shellTargets, headShellTarget };
 }
 
 function resolvePosture(props: Props): Posture {
