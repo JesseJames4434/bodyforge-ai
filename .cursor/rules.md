@@ -1,0 +1,12 @@
+Code workflow rules:
+- make the smallest clean change necessary
+- prefer targeted edits over full file rewrites
+- preserve existing working logic unless change is required
+- only rewrite full files when structural changes are necessary
+- maintain clean, readable, well-structured code
+- keep architecture simple but scalable
+- do not over-engineer early
+- prioritize clarity and maintainability
+- avoid unnecessary changes outside the scope of the request
+- return only the necessary code changes
+- avoid unnecessary explanations unless requested
