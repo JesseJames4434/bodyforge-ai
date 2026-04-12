@@ -33,7 +33,7 @@ type PostureObject = {
   overlay?: unknown;
 };
 
-type Props = {
+export type BodyVisualProps = {
   posture?: Posture | PostureObject;
   postureState?: Posture | PostureObject;
   state?: Posture | PostureObject;
@@ -47,6 +47,8 @@ type Props = {
   /** Passed from exercise screen; reserved for future muscle→focus mapping. */
   highlightedMuscles?: readonly string[];
 };
+
+type Props = BodyVisualProps;
 
 type RegionWeights = {
   chest: number;
@@ -1116,7 +1118,7 @@ function computeCoachingVisualTargets(
   return { highlightTargets, shellTargets, headShellTarget };
 }
 
-function resolvePosture(props: Props): Posture {
+export function resolvePosture(props: Props): Posture {
   const raw = props.posture ?? props.postureState ?? props.state ?? "setup";
 
   if (typeof raw === "string") {
@@ -1147,7 +1149,7 @@ function normalizePosture(value: string): Posture {
   return "setup";
 }
 
-function resolveProfile(props: Props): Profile {
+export function resolveProfile(props: Props): Profile {
   const raw = props.visualProfile ?? props.exerciseType ?? props.profile ?? "press";
   if (raw === "press" || raw === "hinge" || raw === "curl") {
     return raw;
@@ -1155,7 +1157,7 @@ function resolveProfile(props: Props): Profile {
   return "press";
 }
 
-function resolveBodyView(props: Props): BodyView {
+export function resolveBodyView(props: Props): BodyView {
   const raw = props.view ?? props.side;
   if (raw === "front" || raw === "back") {
     return raw;

@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import BodyVisual from '../components/BodyVisual';
+import BodyVisualAssetBased from '../components/BodyVisualAssetBased';
 import {
   getCoachingCueForSet,
   getExerciseById,
@@ -89,8 +89,9 @@ export default function ExerciseScreen() {
         </Text>
       </View>
 
-      <BodyVisual
+      <BodyVisualAssetBased
         side={bodySide}
+        visualProfile={exercise.visualProfile}
         highlightedMuscles={exercise.muscles[bodySide]}
         postureState={postureState}
       />
